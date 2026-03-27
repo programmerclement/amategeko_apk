@@ -245,7 +245,7 @@ class _DashboardTabState extends State<DashboardTab> {
               GridView.count(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                mainAxisSpacing: 10,
                 shrinkWrap: true,
                 physics: NeverScrollableScrollPhysics(),
                 children: [
@@ -395,7 +395,9 @@ class _ExamListItem extends StatelessWidget {
     if (dateStr == null) return 'N/A';
     try {
       final date = DateTime.parse(dateStr);
-      return "${date.day}/${date.month}/${date.year}";
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      return "${date.day}/${date.month}/${date.year} $hour:$minute";
     } catch (e) {
       return dateStr;
     }
@@ -523,7 +525,9 @@ class _PaymentListItem extends StatelessWidget {
     if (dateStr == null) return 'N/A';
     try {
       final date = DateTime.parse(dateStr);
-      return "${date.day}/${date.month}/${date.year}";
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      return "${date.day}/${date.month}/${date.year} $hour:$minute";
     } catch (e) {
       return dateStr;
     }
@@ -580,7 +584,7 @@ class _PaymentListItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                "\$${(amount is int ? amount.toDouble() : amount).toStringAsFixed(2)}",
+                "RWF ${(amount is int ? amount.toDouble() : amount).toStringAsFixed(0)}",
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: Colors.green.shade600,

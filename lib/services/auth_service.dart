@@ -8,6 +8,7 @@ class AuthService {
 
   // Session/Profile storage keys
   static const String _tokenKey = "token";
+  static const String _userIdKey = "userId";
   static const String _userProfileKey = "user_profile";
   static const String _isLoggedInKey = "is_logged_in";
 
@@ -38,6 +39,12 @@ class AuthService {
       if (data.containsKey("token")) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_tokenKey, data["token"]);
+        
+        // Save userId from response (_id or id field from backend)
+        final userId = data["user"]?["_id"] ?? data["_id"] ?? data["id"] ?? "";
+        if (userId.isNotEmpty) {
+          await prefs.setString(_userIdKey, userId);
+        }
         
         // Store user profile data
         final profileData = {
@@ -85,9 +92,34 @@ class AuthService {
       print("LOGIN BODY: ${response.body}");
 
       final data = jsonDecode(response.body);
+      print("🔐 LOGIN PARSED DATA: $data");
+      
       if (data.containsKey("token")) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_tokenKey, data["token"]);
+        
+        // Try to extract userId from various possible locations in response
+        String? userId;
+        
+        // Try user object first
+        if (data["user"] != null) {
+          userId = data["user"]["_id"] ?? data["user"]["id"];
+        }
+        
+        // Try direct fields
+        if (userId == null) {
+          userId = data["_id"] ?? data["id"] ?? data["userId"];
+        }
+        
+        print("📍 Extracted userId: $userId");
+        print("📍 All keys in response: ${data.keys.toList()}");
+        
+        if (userId != null && userId.isNotEmpty) {
+          await prefs.setString(_userIdKey, userId);
+          print("✅ UserId saved to SharedPreferences: $userId");
+        } else {
+          print("⚠️ WARN: userId could not be extracted! Response keys: ${data.keys}");
+        }
         
         // Store user profile data
         final profileData = {
@@ -118,6 +150,19 @@ class AuthService {
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
+  }
+
+  // Get stored userId
+  static Future<String?> getUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedUserId = prefs.getString(_userIdKey);
+      print("🔍 [AuthService] getUserId() - Retrieved: '$storedUserId'");
+      return storedUserId;
+    } catch (e) {
+      print("❌ [AuthService] Error getting userId: $e");
+      return null;
+    }
   }
 
   // Check if user is logged in
@@ -151,6 +196,7 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
     await prefs.remove(_userProfileKey);
     await prefs.remove(_isLoggedInKey);
   }

@@ -79,7 +79,7 @@ class ApiService {
 
   // ========== USER PROFILE ==========
   static Future<Map<String, dynamic>> fetchUserProfile() {
-    return _makeRequest("GET", "/users/profile");
+    return _makeRequest("GET", "/auth/me");
   }
 
   // ========== EXAMS ==========
@@ -91,6 +91,40 @@ class ApiService {
     return _makeRequest("GET", "/exam/check-eligibility");
   }
 
+  static Future<Map<String, dynamic>> generateExam({
+    String category = 'all',
+    String difficulty = 'all',
+    int numberOfQuestions = 20,
+  }) {
+    print('🔄 [ApiService] Generating exam - category: $category, difficulty: $difficulty, questions: $numberOfQuestions');
+    return _makeRequest(
+      "POST",
+      "/exam/generate",
+      body: {
+        "category": category,
+        "difficulty": difficulty,
+        "numberOfQuestions": numberOfQuestions,
+      },
+    );
+  }
+
+  static Future<Map<String, dynamic>> submitExam({
+    required Map<String, dynamic> answers,
+    required int timeSpent,
+    required Map<String, dynamic> examData,
+  }) {
+    print('📤 [ApiService] Submitting exam - answers: ${answers.length}, timeSpent: $timeSpent');
+    return _makeRequest(
+      "POST",
+      "/exam/submit",
+      body: {
+        "answers": answers,
+        "timeSpent": timeSpent,
+        "examData": examData,
+      },
+    );
+  }
+
   static Future<Map<String, dynamic>> startExam(String examId) {
     return _makeRequest("POST", "/exam/start", body: {"examId": examId});
   }
@@ -98,6 +132,35 @@ class ApiService {
   // ========== PAYMENTS ==========
   static Future<Map<String, dynamic>> fetchUserPayments(String userId) {
     return _makeRequest("GET", "/payments/user/$userId");
+  }
+
+  // Public pricing plans (no authentication required)
+  static Future<dynamic> fetchPublicPricingPlans() async {
+    try {
+      final uri = Uri.parse("$baseUrl/pricing/plans");
+      print("📡 Fetching pricing plans from: $uri");
+      
+      final response = await http.get(uri).timeout(Duration(seconds: 10));
+
+      print("✅ API GET /pricing/plans - Status: ${response.statusCode}");
+      print("📝 Raw Response: ${response.body}");
+      print("📊 Response Type: ${response.body.runtimeType}");
+
+      if (response.statusCode >= 400) {
+        print("❌ Server error: ${response.statusCode}");
+        return {"success": false, "message": "Server error: ${response.statusCode}", "data": []};
+      }
+
+      final decoded = jsonDecode(response.body);
+      print("✨ Decoded Response: $decoded");
+      print("✨ Response Type after decode: ${decoded.runtimeType}");
+      
+      return decoded;
+    } catch (e) {
+      print("❌ API Error: $e");
+      print("❌ Error Type: ${e.runtimeType}");
+      return {"success": false, "message": "Network error: $e", "data": []};
+    }
   }
 
   static Future<Map<String, dynamic>> fetchPricingPlans() {
@@ -124,9 +187,40 @@ class ApiService {
     );
   }
 
+  // Check payment status
+  static Future<Map<String, dynamic>> checkPaymentStatus(String reference) {
+    return _makeRequest("GET", "/payments/status/$reference");
+  }
+
+  // Manual payment check
+  static Future<Map<String, dynamic>> manualPaymentCheck(String reqRef) {
+    return _makeRequest("GET", "/payments/manual-check/$reqRef");
+  }
+
+  // Confirm payment manually
+  static Future<Map<String, dynamic>> confirmPayment(String reference) {
+    return _makeRequest("POST", "/payments/confirm/$reference", body: {});
+  }
+
+  static Future<Map<String, dynamic>> activatePlan({
+    required String planId,
+  }) {
+    return _makeRequest("POST", "/users/activate-plan", body: {"planId": planId});
+  }
+
   static Future<Map<String, dynamic>> updateUserProfile(
     Map<String, dynamic> data,
   ) {
-    return _makeRequest("PUT", "/user/profile", body: data);
+    return _makeRequest("PUT", "/users/profile", body: data);
+  }
+
+  static Future<Map<String, dynamic>> changeUserPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _makeRequest("PUT", "/users/password", body: {
+      "currentPassword": currentPassword,
+      "newPassword": newPassword,
+    });
   }
 }
