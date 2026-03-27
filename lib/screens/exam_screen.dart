@@ -36,6 +36,10 @@ class _ExamScreenState extends State<ExamScreen> {
   // Question navigation scroll
   late ScrollController questionScrollController;
 
+  // Results data
+  Map<String, dynamic>? resultsData;
+  int reviewIndex = 0; // For question review navigation
+
   @override
   void initState() {
     super.initState();
@@ -234,93 +238,501 @@ class _ExamScreenState extends State<ExamScreen> {
     final passed = results['passed'] ?? false;
     final correctAnswers = results['correctAnswers'] ?? 0;
     final totalQuestions = results['totalQuestions'] ?? 0;
+    final timeSpent = results['timeSpent'] ?? 0;
+    
+    // Store detailed results and show full-screen results page
+    if (mounted) {
+      setState(() {
+        resultsData = {
+          'score': score,
+          'passed': passed,
+          'correctAnswers': correctAnswers,
+          'totalQuestions': totalQuestions,
+          'timeSpent': timeSpent,
+          'results': results['results'] ?? [], // Detailed question results
+          'incorrectCount': totalQuestions - correctAnswers,
+        };
+        examFinished = true;
+      });
+    }
+  }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                passed ? Icons.check_circle : Icons.cancel,
-                size: 64,
-                color: passed ? Colors.green.shade600 : Colors.red.shade600,
-              ),
-              SizedBox(height: 16),
-              Text(
-                passed ? '🎉 Congratulations!' : '😔 Keep Practicing!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade900,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Score: $score%',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: passed ? Colors.green.shade600 : Colors.red.shade600,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                '$correctAnswers out of $totalQuestions correct',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              SizedBox(height: 24),
-              Row(
+  String _formatTimeSpent(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    
+    if (minutes == 0) {
+      return '${secs}s';
+    } else if (secs == 0) {
+      return '${minutes}m';
+    } else {
+      return '${minutes}m ${secs}s';
+    }
+  }
+
+  Widget _buildResultsScreen() {
+    if (resultsData == null) {
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.green.shade600),
+        ),
+      );
+    }
+
+    final score = resultsData!['score'] ?? 0;
+    final passed = resultsData!['passed'] ?? false;
+    final correctAnswers = resultsData!['correctAnswers'] ?? 0;
+    final totalQuestions = resultsData!['totalQuestions'] ?? 0;
+    final timeSpent = resultsData!['timeSpent'] ?? 0;
+    final incorrectCount = resultsData!['incorrectCount'] ?? (totalQuestions - correctAnswers);
+    final detailedResults = resultsData!['results'] as List? ?? [];
+
+    return WillPopScope(
+      onWillPop: () async => false, // Prevent back button
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close results dialog
-                        Navigator.pop(context); // Return to ExamsTab
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text(
-                        'Take Another Exam',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                  // Results Header
+                  Container(
+                    decoration: BoxDecoration(
+                      color: passed ? Colors.green.shade50 : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: passed ? Colors.green.shade300 : Colors.red.shade300,
                       ),
                     ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close results dialog
-                        Navigator.pop(context); // Return to ExamsTab
-                        Navigator.pop(context); // Back to Home
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade600,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text(
-                        'Back to Home',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Icon(
+                          passed ? Icons.check_circle : Icons.cancel,
+                          size: 64,
+                          color: passed ? Colors.green.shade600 : Colors.red.shade600,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          passed ? '🎉 Congratulations!' : '😔 Keep Practicing!',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade900,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          passed ? 'You Passed the Exam!' : 'You Did Not Pass',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          '$score%',
+                          style: TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.w700,
+                            color: passed ? Colors.green.shade600 : Colors.red.shade600,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '$correctAnswers out of $totalQuestions correct',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  SizedBox(height: 20),
+
+                  // Exam Summary Stats
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    padding: EdgeInsets.fromLTRB(18, 18, 18, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Exam Summary',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade900,
+                          ),
+                        ),
+                        SizedBox(height: 14),
+                        GridView.count(
+                          crossAxisCount: 4,
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          childAspectRatio: 1.15,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 6,
+                          children: [
+                            _buildStatCard('Score', '$score%', Colors.blue),
+                            _buildStatCard('Correct', '$correctAnswers', Colors.green),
+                            _buildStatCard('Wrong', '$incorrectCount', Colors.red),
+                            _buildStatCard('Time', _formatTimeSpent(timeSpent), Colors.purple),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+
+                  // Question Review Section
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    padding: EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Question Review',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.grey.shade900,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                // Scroll back to top
+                                final context = this.context;
+                                // This allows user to navigate back if needed
+                              },
+                              child: Icon(
+                                Icons.arrow_upward,
+                                size: 24,
+                                color: Colors.blue.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        if (detailedResults.isNotEmpty)
+                          Column(
+                            children: List.generate(
+                              detailedResults.length,
+                              (index) => _buildQuestionReviewItem(detailedResults[index], index),
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: Text(
+                                'Detailed question review not available',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // Go back to ExamsTab for another exam
+                            Navigator.pop(context, true);
+                          },
+                          icon: Icon(Icons.replay),
+                          label: Text('Try Again'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // Go back to home
+                            Navigator.pop(context);
+                            Navigator.pop(context);
+                          },
+                          icon: Icon(Icons.home),
+                          label: Text('Back Home'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildStatCard(String label, String value, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      padding: EdgeInsets.all(10),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionReviewItem(Map<String, dynamic> result, int index) {
+    final isCorrect = result['isCorrect'] ?? false;
+    final questionText = result['questionText'] ?? result['question'] ?? 'Question not available';
+    final userAnswer = result['userAnswer'] ?? 'Not answered';
+    final correctAnswer = result['correctAnswer'] ?? 'Unknown';
+    final options = (result['options'] as List?) ?? [];
+    final explanation = result['explanation'] ?? '';
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: isCorrect ? Colors.green.shade500 : Colors.red.shade500,
+            width: 4,
+          ),
+        ),
+        color: isCorrect ? Colors.green.shade50 : Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Question header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Question ${index + 1}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade900,
+                  ),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isCorrect ? Colors.green.shade200 : Colors.red.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isCorrect ? '✓ Correct' : '✗ Incorrect',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isCorrect ? Colors.green.shade700 : Colors.red.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+
+          // Question text
+          Text(
+            questionText,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade900,
+            ),
+          ),
+          SizedBox(height: 12),
+
+          // Options
+          if (options.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                children: List.generate(
+                  options.length,
+                  (optIndex) {
+                    final option = options[optIndex];
+                    final isCorrectOption = option == correctAnswer;
+                    final isUserAnswer = option == userAnswer;
+                    Color bgColor = Colors.grey.shade50;
+                    Color borderColor = Colors.grey.shade300;
+                    String? badge;
+
+                    if (isCorrectOption) {
+                      bgColor = Colors.green.shade100;
+                      borderColor = Colors.green.shade500;
+                      badge = '✓ Correct Answer';
+                    } else if (isUserAnswer && !isCorrect) {
+                      bgColor = Colors.red.shade100;
+                      borderColor = Colors.red.shade500;
+                      badge = '✗ Your Answer';
+                    }
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        border: Border(
+                          bottom: optIndex < options.length - 1
+                              ? BorderSide(color: Colors.grey.shade200)
+                              : BorderSide.none,
+                        ),
+                      ),
+                      padding: EdgeInsets.all(10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              option.toString(),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ),
+                          if (badge != null)
+                            Container(
+                              margin: EdgeInsets.only(left: 8),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isCorrectOption
+                                    ? Colors.green.shade300
+                                    : Colors.red.shade300,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                badge,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isCorrectOption
+                                      ? Colors.green.shade700
+                                      : Colors.red.shade700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // Explanation
+          if (explanation.isNotEmpty) ...[
+            SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                border: Border.all(color: Colors.blue.shade200),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              padding: EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Explanation:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    explanation,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
 
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
@@ -389,6 +801,11 @@ class _ExamScreenState extends State<ExamScreen> {
           ),
         ),
       );
+    }
+
+    // Show Exam Results Screen
+    if (examFinished && resultsData != null) {
+      return _buildResultsScreen();
     }
 
     // Show Submit Confirmation Dialog
@@ -573,42 +990,14 @@ class _ExamScreenState extends State<ExamScreen> {
                               ),
                             ),
                             SizedBox(width: 8),
-                            // Exit/Cancel Button (Icon Only)
-                            IconButton(
-                              onPressed: isSubmittingExam ? null : () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: Text('Exit Exam?'),
-                                    content: Text('Do you want to exit the exam? Your progress will not be saved.'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text('Continue Exam'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          Navigator.pop(context);
-                                        },
-                                        child: Text('Exit', style: TextStyle(color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              icon: Icon(Icons.exit_to_app, color: Colors.grey.shade600),
-                              tooltip: 'Exit Exam',
-                            ),
-                            SizedBox(width: 4),
-                            // Submit Button in Header
+                            // Submit Button in Header (Primary)
                             ElevatedButton.icon(
                               onPressed: isSubmittingExam ? null : () {
                                 setState(() {
                                   showSubmitConfirm = true;
                                 });
                               },
-                              icon: Icon(Icons.check),
+                              icon: Icon(Icons.check, size: 18),
                               label: Text('Submit'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red.shade600,
@@ -618,6 +1007,40 @@ class _ExamScreenState extends State<ExamScreen> {
                                   horizontal: 12,
                                   vertical: 8,
                                 ),
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            // Exit/Cancel Button (Icon Only - Compact)
+                            SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(maxWidth: 36, maxHeight: 36),
+                                onPressed: isSubmittingExam ? null : () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text('Exit Exam?'),
+                                      content: Text('Do you want to exit the exam? Your progress will not be saved.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: Text('Continue Exam'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text('Exit', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                icon: Icon(Icons.exit_to_app, size: 18, color: Colors.grey.shade600),
+                                tooltip: 'Exit Exam',
                               ),
                             ),
                           ],

@@ -107,9 +107,7 @@ class AuthService {
         }
         
         // Try direct fields
-        if (userId == null) {
-          userId = data["_id"] ?? data["id"] ?? data["userId"];
-        }
+        userId ??= data["_id"] ?? data["id"] ?? data["userId"];
         
         print("📍 Extracted userId: $userId");
         print("📍 All keys in response: ${data.keys.toList()}");

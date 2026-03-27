@@ -25,6 +25,12 @@ class _ExamsTabState extends State<ExamsTab> {
   // Exam history
   List<dynamic> recentExams = [];
   bool isLoadingHistory = false;
+  
+  // Filter for exam history
+  String examFilter = 'all'; // 'all', 'passed', 'failed'
+  
+  // Selected exam for details
+  Map<String, dynamic>? selectedExamForDetails;
 
   @override
   void initState() {
@@ -159,11 +165,14 @@ class _ExamsTabState extends State<ExamsTab> {
         // Transform API response to match our UI format
         final transformedExams = examList.map((exam) {
           return {
-            'score': exam['score'] ?? exam['correctAnswers'] ?? 0,
-            'totalQuestions': exam['totalQuestions'] ?? exam['questionsCount'] ?? 20,
-            'category': exam['category'] ?? exam['examCategory'] ?? 'General',
+            'score': exam['score'] ?? 0,
+            'correctAnswers': exam['correctAnswers'] ?? 0,
+            'totalQuestions': exam['totalQuestions'] ?? 20,
+            'category': exam['category'] ?? 'General',
+            'difficulty': exam['difficulty'] ?? 'all',
             'passed': exam['passed'] ?? (exam['status'] == 'passed'),
-            'createdAt': exam['createdAt'] ?? exam['attemptDate'] ?? DateTime.now().toIso8601String(),
+            'timeSpent': exam['timeSpent'] ?? 0,
+            'createdAt': exam['createdAt'] ?? DateTime.now().toIso8601String(),
           };
         }).toList();
 
@@ -545,6 +554,41 @@ class _ExamsTabState extends State<ExamsTab> {
   }
 
   Widget _buildRecentExamsCard() {
+    // Filter exams based on selected filter
+    List<dynamic> filteredExams = recentExams;
+    if (examFilter == 'passed') {
+      filteredExams = recentExams.where((exam) => exam['passed'] == true).toList();
+    } else if (examFilter == 'failed') {
+      filteredExams = recentExams.where((exam) => exam['passed'] != true).toList();
+    }
+    // 'all' uses all exams (no filtering)
+
+    if (filteredExams.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        padding: EdgeInsets.all(20),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.history, size: 48, color: Colors.grey.shade300),
+              SizedBox(height: 12),
+              Text(
+                examFilter == 'all' ? 'No exam records yet' : 'No ${examFilter} records yet',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -559,120 +603,383 @@ class _ExamsTabState extends State<ExamsTab> {
               ),
             )
           : Column(
-              children: List.generate(
-                recentExams.length,
-                (index) {
-                  final exam = recentExams[index];
-                  final score = exam['score'] ?? 0;
-                  final totalQuestions = exam['totalQuestions'] ?? 20;
-                  final category = exam['category'] ?? 'General';
-                  final date = _formatExamDate(exam['createdAt'] ?? '');
-                  final passed = exam['passed'] ?? false;
-                  final percentage = totalQuestions > 0
-                      ? (score / totalQuestions * 100).round()
-                      : 0;
-
-                  return Column(
+              children: [
+                // Filter Buttons (All/Passed/Failed)
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Row(
                     children: [
-                      Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Row(
+                      Expanded(
+                        child: _buildFilterButton(
+                          'All',
+                          'all',
+                          Colors.blue,
+                          Icons.list,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _buildFilterButton(
+                          'Passed',
+                          'passed',
+                          Colors.green,
+                          Icons.check_circle,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _buildFilterButton(
+                          'Failed',
+                          'failed',
+                          Colors.red,
+                          Icons.cancel,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: Colors.grey.shade300),
+                
+                // Recent Exams List (max 5)
+                Column(
+                  children: List.generate(
+                    filteredExams.take(5).length,
+                    (index) {
+                      final exam = filteredExams[index];
+                      final score = exam['score'] ?? 0; // Already a percentage from DB
+                      final correctAnswers = exam['correctAnswers'] ?? 0;
+                      final totalQuestions = exam['totalQuestions'] ?? 20;
+                      final timeSpent = exam['timeSpent'] ?? 0;
+                      final passed = exam['passed'] ?? false;
+                      final createdAt = exam['createdAt'] ?? '';
+                      
+                      // Format date and time
+                      final formattedDateTime = _formatDateTime(createdAt);
+
+                      return GestureDetector(
+                        onTap: () => _showExamDetails(exam),
+                        child: Column(
                           children: [
-                            // Score Circle
                             Container(
-                              width: 60,
-                              height: 60,
+                              margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: passed
-                                    ? Colors.green.shade100
-                                    : Colors.red.shade100,
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: passed
-                                      ? Colors.green.shade400
-                                      : Colors.red.shade400,
-                                  width: 2,
+                                  color: passed ? Colors.green.shade200 : Colors.red.shade200,
+                                  width: 1.5,
                                 ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '$percentage%',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: passed
-                                        ? Colors.green.shade900
-                                        : Colors.red.shade900,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
                                   ),
-                                ),
+                                ],
                               ),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        category,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey.shade900,
-                                        ),
+                                  // Score Circle
+                                  Container(
+                                    width: 70,
+                                    height: 70,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: passed ? Colors.green.shade100 : Colors.red.shade100,
+                                      border: Border.all(
+                                        color: passed ? Colors.green.shade400 : Colors.red.shade400,
+                                        width: 2.5,
                                       ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: passed
-                                              ? Colors.green.shade100
-                                              : Colors.red.shade100,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          passed ? '✅ PASSED' : '❌ FAILED',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: passed
-                                                ? Colors.green.shade900
-                                                : Colors.red.shade900,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    '$score/$totalQuestions correct • $date',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
                                     ),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            '$score%',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: passed ? Colors.green.shade900 : Colors.red.shade900,
+                                            ),
+                                          ),
+                                          Icon(
+                                            passed ? Icons.check : Icons.close,
+                                            size: 16,
+                                            color: passed ? Colors.green.shade900 : Colors.red.shade900,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    '$correctAnswers of $totalQuestions correct',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.grey.shade900,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      Icon(Icons.schedule, size: 12, color: Colors.grey.shade500),
+                                                      SizedBox(width: 4),
+                                                      Text(
+                                                        _formatTimeSpent(timeSpent),
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.grey.shade600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade500),
+                                            SizedBox(width: 6),
+                                            Text(
+                                              formattedDateTime,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: Colors.grey.shade400,
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
+                      );
+                    },
+                  ),
+                ),
+                
+                // View More Button (if more than 5 exams)
+                if (filteredExams.length > 5)
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade300),
                       ),
-                      if (index < recentExams.length - 1)
-                        Divider(
-                          height: 1,
-                          color: Colors.grey.shade300,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            AppSnackbar.info(context, 'Full exam history coming soon!');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade600,
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.history, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'View More Exam History',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                    ],
-                  );
-                },
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildFilterButton(String label, String filterValue, Color color, IconData icon) {
+    final isSelected = examFilter == filterValue;
+    return ElevatedButton(
+      onPressed: () {
+        setState(() => examFilter = filterValue);
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? color : Colors.white,
+        foregroundColor: isSelected ? Colors.white : color,
+        side: BorderSide(
+          color: color,
+          width: isSelected ? 2 : 1.5,
+        ),
+        padding: EdgeInsets.symmetric(vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16),
+          SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  String _formatDateTime(String dateString) {
+    if (dateString.isEmpty) return 'Unknown';
+    try {
+      final date = DateTime.parse(dateString).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(date);
+
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+      return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+  
+  String _formatTimeSpent(int seconds) {
+    if (seconds == 0) return '0 sec';
+    
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    
+    if (minutes == 0) {
+      return '$secs sec';
+    } else if (secs == 0) {
+      return '$minutes min';
+    } else {
+      return '$minutes min $secs sec';
+    }
+  }
+  
+  void _showExamDetails(Map<String, dynamic> exam) {
+    final score = exam['score'] ?? 0;
+    final correctAnswers = exam['correctAnswers'] ?? 0;
+    final totalQuestions = exam['totalQuestions'] ?? 20;
+    final timeSpent = exam['timeSpent'] ?? 0;
+    final passed = exam['passed'] ?? false;
+    final category = exam['category'] ?? 'General';
+    final difficulty = exam['difficulty'] ?? 'All';
+    final createdAt = exam['createdAt'] ?? '';
+    final formattedDateTime = _formatDateTime(createdAt);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              passed ? Icons.check_circle : Icons.cancel,
+              color: passed ? Colors.green : Colors.red,
+              size: 24,
+            ),
+            SizedBox(width: 8),
+            Text(passed ? 'Exam Passed' : 'Exam Failed'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow('Score', '$score%', Colors.blue),
+              _detailRow('Correct Answers', '$correctAnswers / $totalQuestions', Colors.green),
+              _detailRow('Category', category.toUpperCase(), Colors.purple),
+              _detailRow('Difficulty', difficulty.toUpperCase(), Colors.orange),
+              _detailRow('Time Taken', '${(timeSpent / 60).toStringAsFixed(0)} minutes', Colors.teal),
+              _detailRow('Date & Time', formattedDateTime, Colors.grey),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _detailRow(String label, String value, Color color) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 

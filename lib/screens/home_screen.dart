@@ -33,21 +33,33 @@ class _HomeScreenState extends State<HomeScreen> {
       final response = await ApiService.fetchUserProfile();
 
       if (mounted) {
-        setState(() {
-          // Backend returns data directly with username/email fields
-          if (response.containsKey('username')) {
-            username = response['username'] ?? 'User';
-            email = response['email'] ?? 'user@example.com';
-
-            // Extract profile details
-            final profile = response['profile'] ?? {};
-            firstName = profile['firstName'] ?? '';
-            lastName = profile['lastName'] ?? '';
-            phone = profile['phone'] ?? '';
-          }
-        });
+        // Check if response has user data (username field exists)
+        if (response['username'] != null) {
+          // Response is the user object directly (matches ProfileScreen logic)
+          final userData = response;
+          
+          // Extract profile data - check both locations like ProfileScreen does
+          final profile = userData['profile'] ?? {};
+          final profileFirstName = profile['firstName'] ?? userData['firstName'] ?? '';
+          final profileLastName = profile['lastName'] ?? userData['lastName'] ?? '';
+          final profilePhone = profile['phone'] ?? userData['phone'] ?? '';
+          
+          setState(() {
+            username = userData['username'] ?? 'User';
+            email = userData['email'] ?? 'user@example.com';
+            firstName = profileFirstName;
+            lastName = profileLastName;
+            phone = profilePhone;
+          });
+          
+          print('✅ [HomeScreen] User info loaded:');
+          print('   - Username: $username');
+          print('   - Email: $email');
+          print('   - Phone: $phone');
+        }
       }
     } catch (e) {
+      print('❌ [HomeScreen] Error loading user info: $e');
       if (mounted) {
         setState(() {});
       }
