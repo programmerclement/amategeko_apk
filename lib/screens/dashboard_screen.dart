@@ -92,42 +92,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : errorMessage.isNotEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(errorMessage, style: TextStyle(color: Colors.red)),
-                      SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: fetchData,
-                        child: Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Statistics Section
-                      Text(
-                        'Statistics',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatCard('Total Exams', totalExams.toString(), Colors.blue),
-                          ),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: _buildStatCard('Passed', passedExams.toString(), Colors.green),
-                          ),
+      body: SafeArea(
+        child: isLoading
+            ? Center(child: CircularProgressIndicator())
+            : errorMessage.isNotEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(errorMessage, style: TextStyle(color: Colors.red)),
+                        SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: fetchData,
+                          child: Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Statistics Section
+                        Text(
+                          'Statistics',
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard('Total Exams', totalExams.toString(), Colors.blue),
+                            ),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: _buildStatCard('Passed', passedExams.toString(), Colors.green),
+                            ),
                         ],
                       ),
                       SizedBox(height: 16),
@@ -195,6 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
+      ),
     );
   }
 

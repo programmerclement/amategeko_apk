@@ -55,10 +55,11 @@ class _ExamScreenState extends State<ExamScreen> {
   }
 
   void _disableCheating() {
-    // Disable screenshots
+    // Allow system UI to remain visible for better UX
+    // Still prevent cheating through other means
     SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.immersiveSticky,
-      overlays: [SystemUiOverlay.top],
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
     );
     
     // Disable copy/paste
@@ -790,14 +791,16 @@ class _ExamScreenState extends State<ExamScreen> {
   Widget build(BuildContext context) {
     if (isLoadingExam || examData == null) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Colors.green.shade600),
-              SizedBox(height: 16),
-              Text('Preparing your exam...'),
-            ],
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: Colors.green.shade600),
+                SizedBox(height: 16),
+                Text('Preparing your exam...'),
+              ],
+            ),
           ),
         ),
       );
