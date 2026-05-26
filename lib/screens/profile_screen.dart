@@ -35,16 +35,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController currentPasswordController;
   late TextEditingController newPasswordController;
   late TextEditingController confirmPasswordController;
+  late TextEditingController deactivatePasswordController;
 
   bool isLoadingProfile = false;
   bool isLoadingPassword = false;
+  bool isDeactivating = false;
   String? userId; // Track userId for profile operations
   String successMessage = '';
   String errorMessage = '';
   bool showCurrentPassword = false;
   bool showNewPassword = false;
   bool showConfirmPassword = false;
-  
+  bool showDeactivatePassword = false;
+
   // View/Edit mode toggle
   bool isEditMode = false;
   bool isLoadingFullProfile = false;
@@ -55,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     print('👤 [ProfileScreen] Init state - loading user data');
     _loadUserData();
     _loadFullProfile();
-    
+
     firstNameController = TextEditingController(text: widget.firstName);
     lastNameController = TextEditingController(text: widget.lastName);
     phoneController = TextEditingController(text: widget.phone);
@@ -65,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     currentPasswordController = TextEditingController();
     newPasswordController = TextEditingController();
     confirmPasswordController = TextEditingController();
+    deactivatePasswordController = TextEditingController();
   }
 
   @override
@@ -85,13 +89,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       print('🔄 [ProfileScreen] Loading user ID...');
       final loadedUserId = await AuthService.getUserId();
-      
+
       if (mounted) {
         setState(() {
           userId = loadedUserId;
         });
       }
-      
+
       print('👤 [ProfileScreen] User ID loaded: $userId');
       if (userId != null && userId!.isNotEmpty) {
         print('✅ [ProfileScreen] User ID confirmed: $userId');
@@ -112,12 +116,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         // Check if response has user data (success field or direct user object)
-        bool hasError = response['success'] == false || response.containsKey('message');
-        
+        bool hasError =
+            response['success'] == false || response.containsKey('message');
+
         if (!hasError && response['username'] != null) {
           // Response is the user object directly
           final userData = response;
-          
+
           // Extract profile data
           final profile = userData['profile'] ?? {};
           final firstName = profile['firstName'] ?? userData['firstName'] ?? '';
@@ -145,7 +150,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           print('   - Location: $location');
         } else {
           setState(() => isLoadingFullProfile = false);
-          print('⚠️ [ProfileScreen] Failed to load profile: ${response['message'] ?? 'Unknown error'}');
+          print(
+            '⚠️ [ProfileScreen] Failed to load profile: ${response['message'] ?? 'Unknown error'}',
+          );
         }
       }
     } catch (e) {
@@ -192,10 +199,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           isLoadingProfile = false;
         });
-        
+
         if (response['success'] == true) {
           AppSnackbar.success(context, '✅ Profile updated successfully!');
-          
+
           // Reload profile data and return to view mode
           Future.delayed(Duration(milliseconds: 500), () {
             if (mounted) {
@@ -203,7 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               setState(() => isEditMode = false);
             }
           });
-          
+
           widget.onProfileUpdated();
         } else {
           String errMsg = response['message'] ?? 'Failed to update profile';
@@ -239,7 +246,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (newPasswordController.text.length < 6) {
-      AppSnackbar.error(context, '❌ Password must be at least 6 characters long');
+      AppSnackbar.error(
+        context,
+        '❌ Password must be at least 6 characters long',
+      );
       return;
     }
 
@@ -262,13 +272,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           isLoadingPassword = false;
         });
-        
+
         if (response['success'] == true) {
-          AppSnackbar.success(context, '✅ Password changed successfully! Logging out...');
+          AppSnackbar.success(
+            context,
+            '✅ Password changed successfully! Logging out...',
+          );
           currentPasswordController.clear();
           newPasswordController.clear();
           confirmPasswordController.clear();
-          
+
           // Logout after password change success
           Future.delayed(Duration(seconds: 2), () async {
             if (mounted) {
@@ -282,7 +295,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else {
           String errMsg = response['message'] ?? 'Failed to change password';
           // Check if it's an auth error and provide user-friendly message
-          if (errMsg.toLowerCase().contains('unauthorized') || 
+          if (errMsg.toLowerCase().contains('unauthorized') ||
               errMsg.toLowerCase().contains('invalid credentials') ||
               response.toString().contains('401')) {
             errMsg = '❌ Incorrect current password';
@@ -303,8 +316,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fullName = '${firstNameController.text} ${lastNameController.text}'.trim();
-    
+    final fullName = '${firstNameController.text} ${lastNameController.text}'
+        .trim();
+
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
@@ -325,14 +339,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
 
                 // Edit Profile Card (Hidden in view mode)
-                if (isEditMode)
-                  _buildEditProfileCard(),
-                
-                if (isEditMode)
-                  SizedBox(height: 24),
+                if (isEditMode) _buildEditProfileCard(),
+
+                if (isEditMode) SizedBox(height: 24),
 
                 // Change Password Card
                 _buildChangePasswordCard(),
+                SizedBox(height: 24),
+
+                // Deactivate Account Card
+                _buildDeactivateAccountCard(),
                 SizedBox(height: 24),
               ],
             ),
@@ -349,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: Offset(0, 4),
           ),
@@ -399,15 +415,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           SizedBox(height: 20),
-          
+
           // Username Display (Read-only)
           _buildInfoRow(
             icon: Icons.badge_outlined,
             label: 'Username',
-            value: usernameController.text.isEmpty ? '—' : usernameController.text,
+            value: usernameController.text.isEmpty
+                ? '—'
+                : usernameController.text,
           ),
           SizedBox(height: 16),
-          
+
           // Full Name Display
           _buildInfoRow(
             icon: Icons.person_outline,
@@ -415,7 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: fullName.isEmpty ? '—' : fullName,
           ),
           SizedBox(height: 16),
-          
+
           // Email Display
           _buildInfoRow(
             icon: Icons.email_outlined,
@@ -423,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: emailController.text.isEmpty ? '—' : emailController.text,
           ),
           SizedBox(height: 16),
-          
+
           // Phone Display
           _buildInfoRow(
             icon: Icons.phone_outlined,
@@ -431,12 +449,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: phoneController.text.isEmpty ? '—' : phoneController.text,
           ),
           SizedBox(height: 16),
-          
+
           // Location Display
           _buildInfoRow(
             icon: Icons.location_on_outlined,
             label: 'Location',
-            value: locationController.text.isEmpty ? '—' : locationController.text,
+            value: locationController.text.isEmpty
+                ? '—'
+                : locationController.text,
           ),
         ],
       ),
@@ -496,7 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: Offset(0, 4),
           ),
@@ -529,11 +549,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Spacer(),
               // Cancel Button
               TextButton(
-                onPressed: isLoadingProfile ? null : () {
-                  // Reset controllers to current values
-                  _loadFullProfile();
-                  setState(() => isEditMode = false);
-                },
+                onPressed: isLoadingProfile
+                    ? null
+                    : () {
+                        // Reset controllers to current values
+                        _loadFullProfile();
+                        setState(() => isEditMode = false);
+                      },
                 child: Text(
                   'Cancel',
                   style: TextStyle(color: Colors.grey.shade600),
@@ -632,7 +654,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: Offset(0, 4),
           ),
@@ -667,10 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(height: 6),
           Text(
             'Keep your account secure by updating your password regularly',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           SizedBox(height: 18),
           _buildPasswordField(
@@ -678,7 +697,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Current Password',
             hint: 'Enter your current password',
             isVisible: showCurrentPassword,
-            onToggle: () => setState(() => showCurrentPassword = !showCurrentPassword),
+            onToggle: () =>
+                setState(() => showCurrentPassword = !showCurrentPassword),
           ),
           SizedBox(height: 14),
           _buildPasswordField(
@@ -694,7 +714,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Confirm Password',
             hint: 'Re-enter your new password',
             isVisible: showConfirmPassword,
-            onToggle: () => setState(() => showConfirmPassword = !showConfirmPassword),
+            onToggle: () =>
+                setState(() => showConfirmPassword = !showConfirmPassword),
           ),
           SizedBox(height: 20),
           SizedBox(
@@ -743,9 +764,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool enabled = true,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
       child: TextField(
         controller: controller,
         enabled: enabled,
@@ -800,9 +819,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required VoidCallback onToggle,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
       child: TextField(
         controller: controller,
         obscureText: !isVisible,
@@ -822,7 +839,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           suffixIcon: IconButton(
             icon: Icon(
-              isVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              isVisible
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
               size: 20,
               color: Colors.grey.shade600,
             ),
@@ -852,6 +871,284 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-}
-  
 
+  Widget _buildDeactivateAccountCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.red.shade100, width: 1.5),
+      ),
+      padding: EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade600,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Danger Zone',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red.shade700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Deactivating your account will disable your access to this platform. This action requires password confirmation.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          SizedBox(height: 18),
+          // Red Warning Container
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.warning_amber_outlined,
+                  color: Colors.red.shade600,
+                  size: 20,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'This action cannot be undone. Your account and all associated data will be deactivated.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 18),
+          _buildPasswordField(
+            controller: deactivatePasswordController,
+            label: 'Confirm Password',
+            hint: 'Enter your password to deactivate',
+            isVisible: showDeactivatePassword,
+            onToggle: () => setState(
+              () => showDeactivatePassword = !showDeactivatePassword,
+            ),
+          ),
+          SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isDeactivating ? null : _deactivateAccount,
+              icon: isDeactivating
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : Icon(Icons.delete_forever_outlined),
+              label: Text(
+                isDeactivating
+                    ? 'Deactivating Account...'
+                    : 'Deactivate Account',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deactivateAccount() async {
+    // Validation
+    if (deactivatePasswordController.text.isEmpty) {
+      AppSnackbar.error(
+        context,
+        '❌ Password is required to deactivate account!',
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Confirm Account Deactivation',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.red.shade700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outlined,
+                    color: Colors.red.shade600,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone. Your account will be permanently deactivated.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Are you absolutely sure?',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Deactivate',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() {
+      isDeactivating = true;
+      errorMessage = '';
+      successMessage = '';
+    });
+
+    try {
+      print('🗑️ [ProfileScreen] Attempting to deactivate account...');
+      final response = await ApiService.deactivateAccount(
+        deactivatePasswordController.text,
+      );
+      print('📥 [ProfileScreen] Deactivate response: $response');
+
+      if (mounted) {
+        setState(() {
+          isDeactivating = false;
+        });
+
+        if (response['success'] == true) {
+          AppSnackbar.success(
+            context,
+            '✅ Account deactivated successfully! Logging out...',
+          );
+          deactivatePasswordController.clear();
+
+          // Logout after successful deactivation
+          Future.delayed(Duration(seconds: 2), () async {
+            if (mounted) {
+              print(
+                '🔐 [ProfileScreen] Logging out after account deactivation',
+              );
+              await AuthService.logout();
+              if (mounted) {
+                Navigator.of(context).pushReplacementNamed('/');
+              }
+            }
+          });
+        } else {
+          final errorMsg =
+              response['message'] ?? 'Failed to deactivate account';
+          print('❌ [ProfileScreen] Deactivation failed: $errorMsg');
+          AppSnackbar.error(context, '❌ $errorMsg');
+        }
+      }
+    } catch (e) {
+      print('❌ [ProfileScreen] Error deactivating account: $e');
+      if (mounted) {
+        setState(() {
+          isDeactivating = false;
+        });
+        AppSnackbar.error(context, '❌ Error: $e');
+      }
+    }
+  }
+}

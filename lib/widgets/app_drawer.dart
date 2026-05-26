@@ -9,7 +9,10 @@ class AppDrawer extends StatelessWidget {
   final String phone;
   final VoidCallback onDashboard;
   final VoidCallback onExams;
+  final VoidCallback onLearn;
+  final VoidCallback onExamHistory;
   final VoidCallback onPayments;
+  final VoidCallback onCertificate;
   final VoidCallback onProfile;
 
   const AppDrawer({
@@ -21,7 +24,10 @@ class AppDrawer extends StatelessWidget {
     required this.phone,
     required this.onDashboard,
     required this.onExams,
+    required this.onLearn,
+    required this.onExamHistory,
     required this.onPayments,
+    required this.onCertificate,
     required this.onProfile,
   });
 
@@ -39,7 +45,9 @@ class AppDrawer extends StatelessWidget {
       fullName = username;
     }
 
-    print('📱 [AppDrawer] Building drawer with phone: "$phone" (length: ${phone.length})');
+    print(
+      '📱 [AppDrawer] Building drawer with phone: "$phone" (length: ${phone.length})',
+    );
 
     return Drawer(
       child: Column(
@@ -69,7 +77,7 @@ class AppDrawer extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
+                          color: Colors.black.withValues(alpha: 0.25),
                           blurRadius: 12,
                           offset: Offset(0, 4),
                         ),
@@ -93,53 +101,36 @@ class AppDrawer extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        // Full Name
-                        if (fullName.isNotEmpty)                      
-                          Text(
-                            fullName,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      // Full Name
+                      if (fullName.isNotEmpty)
+                        Text(
+                          fullName,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
-                        
-                        if (fullName.isNotEmpty) SizedBox(height: 4),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
 
-                        // Email
-                        if (email.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 3),
-                            child: Row(
-                              children: [
-                                Icon(Icons.email, size: 12, color: Colors.white70),
-                                SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    email,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white70,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                      if (fullName.isNotEmpty) SizedBox(height: 4),
 
-                        // Phone Number - Below Email
-                        if (phone.isNotEmpty)
-                          Row(
+                      // Email
+                      if (email.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 3),
+                          child: Row(
                             children: [
-                              Icon(Icons.phone, size: 12, color: Colors.white70),
+                              Icon(
+                                Icons.email,
+                                size: 12,
+                                color: Colors.white70,
+                              ),
                               SizedBox(width: 5),
                               Expanded(
                                 child: Text(
-                                  phone,
+                                  email,
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.white70,
@@ -150,6 +141,27 @@ class AppDrawer extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+
+                      // Phone Number - Below Email
+                      if (phone.isNotEmpty)
+                        Row(
+                          children: [
+                            Icon(Icons.phone, size: 12, color: Colors.white70),
+                            SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                phone,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white70,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ],
@@ -177,11 +189,35 @@ class AppDrawer extends StatelessWidget {
                   },
                 ),
                 _DrawerItem(
+                  icon: Icons.school_outlined,
+                  label: "Learn",
+                  onTap: () {
+                    Navigator.pop(context);
+                    onLearn();
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.history,
+                  label: "Exam History",
+                  onTap: () {
+                    Navigator.pop(context);
+                    onExamHistory();
+                  },
+                ),
+                _DrawerItem(
                   icon: Icons.payment,
                   label: "Payments",
                   onTap: () {
                     Navigator.pop(context);
                     onPayments();
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.card_giftcard,
+                  label: "Certificate",
+                  onTap: () {
+                    Navigator.pop(context);
+                    onCertificate();
                   },
                 ),
                 _DrawerItem(
@@ -275,11 +311,7 @@ class AppDrawer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
-                    child: Icon(
-                      Icons.school,
-                      size: 48,
-                      color: Colors.white,
-                    ),
+                    child: Icon(Icons.school, size: 48, color: Colors.white),
                   ),
                 ),
                 SizedBox(height: 20),
@@ -361,7 +393,11 @@ class AppDrawer extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.person, size: 18, color: Colors.blue.shade600),
+                          Icon(
+                            Icons.person,
+                            size: 18,
+                            color: Colors.blue.shade600,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Developer',
@@ -399,7 +435,11 @@ class AppDrawer extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.article, size: 18, color: Colors.purple.shade600),
+                          Icon(
+                            Icons.article,
+                            size: 18,
+                            color: Colors.purple.shade600,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'License',

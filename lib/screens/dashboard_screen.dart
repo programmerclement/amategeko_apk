@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/exam_service.dart';
 import '../services/payment_service.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int passedExams = 0;
   int failedExams = 0;
   double successRate = 0.0;
+  String planName = 'Free';
 
   @override
   void initState() {
@@ -48,7 +50,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         examHistory = examResponse['data'] ?? [];
         calculateStatistics();
       } else {
-        errorMessage = examResponse['message'] ?? 'Failed to fetch exam history';
+        errorMessage =
+            examResponse['message'] ?? 'Failed to fetch exam history';
+      }
+
+      // Fetch user profile for plan info
+      final profileResponse = await ApiService.fetchUserProfile();
+      if (profileResponse['planName'] != null) {
+        planName = profileResponse['planName'] ?? 'Free';
       }
 
       // Fetch payment history
@@ -57,7 +66,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         paymentHistory = paymentResponse['data'] ?? [];
       } else {
         if (errorMessage.isEmpty) {
-          errorMessage = paymentResponse['message'] ?? 'Failed to fetch payment history';
+          errorMessage =
+              paymentResponse['message'] ?? 'Failed to fetch payment history';
         }
       }
     } catch (e) {
@@ -71,7 +81,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void calculateStatistics() {
     totalExams = examHistory.length;
-    passedExams = examHistory.where((exam) => exam['status'] == 'passed').length;
+    passedExams = examHistory
+        .where((exam) => exam['status'] == 'passed')
+        .length;
     failedExams = totalExams - passedExams;
     successRate = totalExams > 0 ? (passedExams / totalExams) * 100 : 0.0;
   }
@@ -83,6 +95,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: Text('Dashboard'),
         backgroundColor: Colors.green,
         actions: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.card_membership, size: 16, color: Colors.white),
+                  SizedBox(width: 6),
+                  Text(
+                    planName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () async {
@@ -96,106 +133,132 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: isLoading
             ? Center(child: CircularProgressIndicator())
             : errorMessage.isNotEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(errorMessage, style: TextStyle(color: Colors.red)),
+                    SizedBox(height: 16),
+                    ElevatedButton(onPressed: fetchData, child: Text('Retry')),
+                  ],
+                ),
+              )
+            : SingleChildScrollView(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Statistics Section
+                    Text(
+                      'Statistics',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Row(
                       children: [
-                        Text(errorMessage, style: TextStyle(color: Colors.red)),
-                        SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: fetchData,
-                          child: Text('Retry'),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Total Exams',
+                            totalExams.toString(),
+                            Colors.blue,
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Passed',
+                            passedExams.toString(),
+                            Colors.green,
+                          ),
                         ),
                       ],
                     ),
-                  )
-                : SingleChildScrollView(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    SizedBox(height: 16),
+                    Row(
                       children: [
-                        // Statistics Section
-                        Text(
-                          'Statistics',
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Failed',
+                            failedExams.toString(),
+                            Colors.red,
+                          ),
                         ),
-                        SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard('Total Exams', totalExams.toString(), Colors.blue),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: _buildStatCard('Passed', passedExams.toString(), Colors.green),
-                            ),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatCard('Failed', failedExams.toString(), Colors.red),
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Success Rate',
+                            '${successRate.toStringAsFixed(1)}%',
+                            Colors.orange,
                           ),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: _buildStatCard('Success Rate', '${successRate.toStringAsFixed(1)}%', Colors.orange),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 32),
+
+                    // Exam History Section
+                    Text(
+                      'Exam History',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    examHistory.isEmpty
+                        ? Text('No exam history available')
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: examHistory.length,
+                            itemBuilder: (context, index) {
+                              final exam = examHistory[index];
+                              return Card(
+                                child: ListTile(
+                                  title: Text('Exam ${index + 1}'),
+                                  subtitle: Text(
+                                    'Status: ${exam['status'] ?? 'Unknown'}',
+                                  ),
+                                  trailing: Text(exam['date'] ?? ''),
+                                ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
-                      SizedBox(height: 32),
+                    SizedBox(height: 32),
 
-                      // Exam History Section
-                      Text(
-                        'Exam History',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    // Payment History Section
+                    Text(
+                      'Payment History',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                      SizedBox(height: 16),
-                      examHistory.isEmpty
-                          ? Text('No exam history available')
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemCount: examHistory.length,
-                              itemBuilder: (context, index) {
-                                final exam = examHistory[index];
-                                return Card(
-                                  child: ListTile(
-                                    title: Text('Exam ${index + 1}'),
-                                    subtitle: Text('Status: ${exam['status'] ?? 'Unknown'}'),
-                                    trailing: Text(exam['date'] ?? ''),
+                    ),
+                    SizedBox(height: 16),
+                    paymentHistory.isEmpty
+                        ? Text('No payment history available')
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: paymentHistory.length,
+                            itemBuilder: (context, index) {
+                              final payment = paymentHistory[index];
+                              return Card(
+                                child: ListTile(
+                                  title: Text('Payment ${index + 1}'),
+                                  subtitle: Text(
+                                    'Amount: ${payment['amount'] ?? 'N/A'}',
                                   ),
-                                );
-                              },
-                            ),
-                      SizedBox(height: 32),
-
-                      // Payment History Section
-                      Text(
-                        'Payment History',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 16),
-                      paymentHistory.isEmpty
-                          ? Text('No payment history available')
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemCount: paymentHistory.length,
-                              itemBuilder: (context, index) {
-                                final payment = paymentHistory[index];
-                                return Card(
-                                  child: ListTile(
-                                    title: Text('Payment ${index + 1}'),
-                                    subtitle: Text('Amount: ${payment['amount'] ?? 'N/A'}'),
-                                    trailing: Text(payment['date'] ?? ''),
-                                  ),
-                                );
-                              },
-                            ),
-                    ],
-                  ),
+                                  trailing: Text(payment['date'] ?? ''),
+                                ),
+                              );
+                            },
+                          ),
+                  ],
                 ),
+              ),
       ),
     );
   }
@@ -214,7 +277,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SizedBox(height: 8),
             Text(
               value,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
           ],
         ),

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
+import '../services/certificate_service.dart';
+import '../services/referral_service.dart';
 import '../widgets/stat_card.dart';
+import 'exam_screen.dart';
+import 'exam_history_screen.dart';
+import 'certificate_view_screen.dart';
+import 'referral_tracking_screen.dart';
 
 class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
@@ -25,6 +32,25 @@ class _DashboardTabState extends State<DashboardTab> {
   double bestScore = 0.0;
   bool isPremium = false;
   String planName = 'Free';
+
+  // Exam eligibility
+  bool canTakeExam = true;
+  String eligibilityMessage = '';
+
+  // Referral data
+  String referralCode = '';
+  int referralCount = 0;
+  double referralEarnings = 0.0;
+  int pendingBonusCount = 0;
+  int claimedBonusCount = 0;
+  String shareUrl = '';
+
+  // Certificate data
+  bool certificateEligible = false;
+  String certificateMessage = '';
+  String certificateUrl = '';
+  String certificateNumber = '';
+  String certificateIssuedAt = '';
 
   // Statistics from exam history
   int passedExams = 0;
@@ -51,7 +77,8 @@ class _DashboardTabState extends State<DashboardTab> {
       final profileResponse = await ApiService.fetchUserProfile();
 
       // Check if response has error field or missing _id
-      if (profileResponse.containsKey('message') && !profileResponse.containsKey('_id')) {
+      if (profileResponse.containsKey('message') &&
+          !profileResponse.containsKey('_id')) {
         if (mounted) {
           setState(() {
             errorMessage =
@@ -73,6 +100,53 @@ class _DashboardTabState extends State<DashboardTab> {
       firstName = profile['firstName'] ?? '';
       lastName = profile['lastName'] ?? '';
 
+      // Referral tracking fields
+      referralCode =
+          profileResponse['referralCode'] ??
+          profileResponse['inviteCode'] ??
+          '';
+      referralCount =
+          profileResponse['referralCount'] ??
+          profileResponse['referralsCount'] ??
+          profileResponse['referredUsers']?.length ??
+          0;
+      final referralEarningsValue =
+          profileResponse['referralEarnings'] ??
+          profileResponse['referralBonus'] ??
+          profileResponse['referralIncome'] ??
+          0;
+      referralEarnings = referralEarningsValue is num
+          ? referralEarningsValue.toDouble()
+          : double.tryParse('$referralEarningsValue') ?? 0.0;
+
+      // Certificate metadata
+      final certificateData =
+          profileResponse['certificate'] ??
+          profileResponse['certificateData'] ??
+          {};
+      certificateEligible =
+          certificateData['eligible'] == true ||
+          certificateData['isEligible'] == true ||
+          certificateData['status']?.toString().toLowerCase() == 'ready';
+      certificateMessage =
+          certificateData['message'] ??
+          certificateData['status'] ??
+          (certificateEligible
+              ? 'Your certificate is ready to download.'
+              : 'Complete a passing exam or subscribe to unlock your certificate.');
+      certificateUrl =
+          certificateData['url'] ??
+          certificateData['certificateUrl'] ??
+          certificateData['downloadUrl'] ??
+          '';
+      certificateNumber =
+          certificateData['certificateCode'] ??
+          certificateData['certificateId'] ??
+          certificateData['id'] ??
+          '';
+      certificateIssuedAt =
+          certificateData['issuedAt'] ?? certificateData['date'] ?? '';
+
       // Parse stats from profile
       final stats = profileResponse['stats'] ?? {};
       totalExamsTaken = stats['totalExamsTaken'] ?? 0;
@@ -81,6 +155,81 @@ class _DashboardTabState extends State<DashboardTab> {
 
       // Step 2: Fetch exam history
       final examResponse = await ApiService.fetchExamHistory();
+
+      // Step 2.25: Fetch certificate data directly
+      if (userId.isNotEmpty) {
+        try {
+          print('📜 [Dashboard] Loading certificate data for user: $userId');
+          final certResponse = await CertificateService.getCertificateForUser(
+            userId,
+          );
+          print('📜 [Dashboard] Certificate response: $certResponse');
+
+          if (certResponse['success'] == true) {
+            final cert = certResponse['certificate'] ?? {};
+            certificateEligible = certResponse['eligible'] == true;
+            certificateMessage = certResponse['message'] ?? certificateMessage;
+            certificateNumber =
+                cert['certificateCode'] ??
+                cert['certificateId'] ??
+                cert['id'] ??
+                '';
+            certificateIssuedAt = cert['issuedAt'] ?? '';
+
+            print(
+              '✅ [Dashboard] Certificate loaded: eligible=$certificateEligible, code=$certificateNumber',
+            );
+          } else {
+            certificateEligible = false;
+            certificateMessage =
+                certResponse['message'] ?? 'Certificate not available';
+            print(
+              'ℹ️ [Dashboard] Certificate not eligible: ${certResponse['message']}',
+            );
+          }
+        } catch (e) {
+          print('❌ [Dashboard] Error loading certificate: $e');
+          // Continue with profile data fallback
+        }
+      }
+
+      // Step 2.3: Fetch referral data
+      try {
+        print('🔗 [Dashboard] Loading referral data');
+        final referralResponse = await ReferralService.getReferralInfo();
+
+        if (referralResponse['referralCode'] != null) {
+          referralCode = referralResponse['referralCode'] ?? '';
+          shareUrl = referralResponse['shareData']?['url'] ?? '';
+
+          final referralStats = referralResponse['referralStats'] ?? {};
+          referralCount = referralStats['referralCount'] ?? 0;
+
+          print(
+            '✅ [Dashboard] Referral loaded: code=$referralCode, count=$referralCount',
+          );
+        }
+      } catch (e) {
+        print('❌ [Dashboard] Error loading referral: $e');
+      }
+
+      // Step 2.5: Check exam eligibility
+      final eligibilityResponse = await ApiService.checkExamEligibility();
+      if (eligibilityResponse['success'] == true) {
+        canTakeExam =
+            eligibilityResponse['canTakeExam'] == true ||
+            eligibilityResponse['eligible'] == true;
+        eligibilityMessage =
+            eligibilityResponse['message'] ??
+            (canTakeExam
+                ? 'You may start an exam now.'
+                : 'You are not eligible to start a new exam yet.');
+      } else {
+        canTakeExam = false;
+        eligibilityMessage =
+            eligibilityResponse['message'] ??
+            'Unable to check exam eligibility.';
+      }
 
       if (!mounted) return;
 
@@ -133,6 +282,375 @@ class _DashboardTabState extends State<DashboardTab> {
     passRate = recentExams.isNotEmpty
         ? (passedExams / recentExams.length) * 100
         : 0.0;
+  }
+
+  void _copyReferralCode() {
+    if (referralCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No referral code available yet.')),
+      );
+      return;
+    }
+
+    final shareLink = 'https://amategeko.app/referral/$referralCode';
+    Clipboard.setData(ClipboardData(text: shareLink));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Referral link copied to clipboard')),
+    );
+  }
+
+  void _startExam() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamScreen()));
+  }
+
+  Widget _buildCertificateSection() {
+    print(
+      '🎖️ [CertificateSection] Building - eligible: $certificateEligible, code: $certificateNumber',
+    );
+
+    return GestureDetector(
+      onTap: certificateEligible
+          ? () {
+              print(
+                '🎖️ [CertificateSection] Tapped - navigating to certificate view',
+              );
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CertificateViewScreen(userId: userId),
+                ),
+              );
+            }
+          : null,
+      child: Container(
+        width: double.infinity,
+        margin: EdgeInsets.only(bottom: 16),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: certificateEligible
+              ? Colors.green.shade50
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: certificateEligible
+                ? Colors.green.shade300
+                : Colors.grey.shade200,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (certificateEligible ? Colors.green : Colors.grey)
+                  .withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.card_membership,
+                      color: certificateEligible ? Colors.green : Colors.grey,
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Certificate',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                if (certificateEligible)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade600,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          'Ready',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 12),
+            if (certificateEligible) ...[
+              if (certificateNumber.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.confirmation_number_outlined,
+                        color: Colors.green.shade600,
+                        size: 16,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Certificate #: $certificateNumber',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (certificateIssuedAt.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        color: Colors.green.shade600,
+                        size: 16,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Issued: $certificateIssuedAt',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                CertificateViewScreen(userId: userId),
+                          ),
+                        );
+                      },
+                      icon: Icon(Icons.open_in_new),
+                      label: Text('View Certificate'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        minimumSize: Size(double.infinity, 44),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Text(
+                certificateMessage,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(certificateMessage)));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade200,
+                  minimumSize: Size(double.infinity, 44),
+                  foregroundColor: Colors.grey.shade900,
+                ),
+                child: Text('Certificate Info'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReferralSection() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => ReferralTrackingScreen()));
+      },
+      child: Container(
+        width: double.infinity,
+        margin: EdgeInsets.only(bottom: 16),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.purple.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.purple.shade200, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.purple.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.people, color: Colors.purple.shade600, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Referral Tracking',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade900,
+                  ),
+                ),
+                Spacer(),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.purple.shade600,
+                  size: 16,
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            if (referralCode.isNotEmpty) ...[
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.code, color: Colors.purple.shade600, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Code: $referralCode',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.purple.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Invited',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '$referralCount',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.purple.shade200),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Pending',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '$pendingBonusCount',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.purple.shade200),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Claimed',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '$claimedBonusCount',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (referralCode.isNotEmpty) ...[
+              SizedBox(height: 12),
+              Text(
+                'Tap to view details and claim bonuses',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -241,6 +759,34 @@ class _DashboardTabState extends State<DashboardTab> {
               ),
               SizedBox(height: 20),
 
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: canTakeExam ? _startExam : null,
+                      icon: Icon(Icons.play_arrow),
+                      label: Text(
+                        canTakeExam ? 'Start Exam' : 'Eligibility Pending',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canTakeExam
+                            ? Colors.green.shade600
+                            : Colors.grey.shade400,
+                        minimumSize: Size(double.infinity, 50),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (!canTakeExam) ...[
+                SizedBox(height: 10),
+                Text(
+                  eligibilityMessage,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+              ],
+              SizedBox(height: 20),
+
               // Stats Grid - Real Data from API
               GridView.count(
                 crossAxisCount: 2,
@@ -290,7 +836,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.purple.withOpacity(0.2),
+                      color: Colors.purple.withValues(alpha: 0.2),
                       blurRadius: 12,
                       offset: Offset(0, 4),
                     ),
@@ -328,13 +874,33 @@ class _DashboardTabState extends State<DashboardTab> {
               SizedBox(height: 24),
 
               // Recent Exams Section
-              Text(
-                "Recent Exams",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade900,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Recent Exams",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade900,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ExamHistoryScreen()),
+                      );
+                    },
+                    child: Text(
+                      'View All',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               SizedBox(height: 12),
               if (recentExams.isEmpty)
@@ -377,6 +943,9 @@ class _DashboardTabState extends State<DashboardTab> {
                     .take(3)
                     .map((payment) => _PaymentListItem(payment)),
 
+              SizedBox(height: 24),
+              _buildCertificateSection(),
+              _buildReferralSection(),
               SizedBox(height: 20),
             ],
           ),
@@ -403,6 +972,12 @@ class _ExamListItem extends StatelessWidget {
     }
   }
 
+  void _viewExamDetails(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ExamHistoryScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final passed = exam['passed'] ?? false;
@@ -412,65 +987,83 @@ class _ExamListItem extends StatelessWidget {
     final difficulty = exam['difficulty'] ?? 'N/A';
     final date = _formatDate(exam['createdAt']);
 
-    return Container(
-      margin: EdgeInsets.only(bottom: 10),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.assignment, color: Colors.blue, size: 24),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category,
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      date,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
+    return GestureDetector(
+      onTap: () => _viewExamDetails(context),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 10),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.assignment, color: Colors.blue, size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category,
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  passed ? "PASSED" : "FAILED",
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
+                      Text(
+                        date,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _ScoreBadge("Score", "$score%", Colors.blue),
-              _ScoreBadge("Difficulty", difficulty, Colors.purple),
-            ],
-          ),
-        ],
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    passed ? "PASSED" : "FAILED",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _ScoreBadge("Score", "$score%", Colors.blue),
+                _ScoreBadge("Difficulty", difficulty, Colors.purple),
+                Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -488,7 +1081,7 @@ class _ScoreBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
@@ -559,7 +1152,7 @@ class _PaymentListItem extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
+              color: Colors.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.payment, color: Colors.orange, size: 20),
@@ -595,7 +1188,7 @@ class _PaymentListItem extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 margin: EdgeInsets.only(top: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

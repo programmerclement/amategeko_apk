@@ -3,6 +3,9 @@ import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
 import 'dashboard_tab.dart';
 import 'exams_tab.dart';
+import 'learn_screen.dart';
+import 'exam_history_screen.dart';
+import 'certificate_view_screen.dart';
 import 'payments_tab.dart';
 import 'profile_screen.dart';
 
@@ -37,13 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
         if (response['username'] != null) {
           // Response is the user object directly (matches ProfileScreen logic)
           final userData = response;
-          
+
           // Extract profile data - check both locations like ProfileScreen does
           final profile = userData['profile'] ?? {};
-          final profileFirstName = profile['firstName'] ?? userData['firstName'] ?? '';
-          final profileLastName = profile['lastName'] ?? userData['lastName'] ?? '';
+          final profileFirstName =
+              profile['firstName'] ?? userData['firstName'] ?? '';
+          final profileLastName =
+              profile['lastName'] ?? userData['lastName'] ?? '';
           final profilePhone = profile['phone'] ?? userData['phone'] ?? '';
-          
+
           setState(() {
             username = userData['username'] ?? 'User';
             email = userData['email'] ?? 'user@example.com';
@@ -51,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
             lastName = profileLastName;
             phone = profilePhone;
           });
-          
+
           print('✅ [HomeScreen] User info loaded:');
           print('   - Username: $username');
           print('   - Email: $email');
@@ -71,7 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final tabs = [
       DashboardTab(),
       ExamsTab(),
+      LearnScreen(onTakeExam: () => setState(() => _currentTab = 1)),
+      ExamHistoryScreen(),
       PaymentsTab(),
+      CertificateViewScreen(),
       ProfileScreen(
         username: username,
         email: email,
@@ -79,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         lastName: lastName,
         phone: phone,
         onProfileUpdated: _loadUserInfo,
-      )
+      ),
     ];
 
     return Scaffold(
@@ -92,7 +100,13 @@ class _HomeScreenState extends State<HomeScreen> {
               : _currentTab == 1
               ? "Exams"
               : _currentTab == 2
+              ? "Learn"
+              : _currentTab == 3
+              ? "Exam History"
+              : _currentTab == 4
               ? "Payments"
+              : _currentTab == 5
+              ? "Certificate"
               : "Profile",
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
@@ -106,15 +120,24 @@ class _HomeScreenState extends State<HomeScreen> {
         phone: phone,
         onDashboard: () => setState(() => _currentTab = 0),
         onExams: () => setState(() => _currentTab = 1),
-        onPayments: () => setState(() => _currentTab = 2),
-        onProfile: () => setState(() => _currentTab = 3),
+        onLearn: () => setState(() => _currentTab = 2),
+        onExamHistory: () => setState(() => _currentTab = 3),
+        onPayments: () => setState(() => _currentTab = 4),
+        onCertificate: () => setState(() => _currentTab = 5),
+        onProfile: () => setState(() => _currentTab = 6),
       ),
       body: SafeArea(
         child: IndexedStack(index: _currentTab, children: tabs),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentTab,
-        onTap: (index) => setState(() => _currentTab = index),
+        currentIndex: _currentTab >= 3 ? 3 : _currentTab,
+        onTap: (index) {
+          int tabIndex = index;
+          if (index == 3) {
+            tabIndex = 6; // Profile is at index 6
+          }
+          setState(() => _currentTab = tabIndex);
+        },
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: Colors.green.shade600,
@@ -126,7 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'Exams'),
-          BottomNavigationBarItem(icon: Icon(Icons.payment), label: 'Payments'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.school_outlined),
+            label: 'Learn',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),

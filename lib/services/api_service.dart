@@ -50,24 +50,35 @@ class ApiService {
           body: jsonEncode(body),
         );
       } else if (method == "DELETE") {
-        response = await http.delete(uri, headers: requestHeaders);
+        response = await http.delete(
+          uri,
+          headers: requestHeaders,
+          body: body != null ? jsonEncode(body) : null,
+        );
       }
 
       print("API $method $endpoint - Status: ${response.statusCode}");
       print("Response: ${response.body}");
 
-      if (response.statusCode == 401) {
-        return {
-          "success": false,
-          "message": "Unauthorized. Please login again.",
-        };
-      }
-
       if (response.statusCode >= 400) {
-        return {
-          "success": false,
-          "message": "Server error: ${response.statusCode}",
-        };
+        try {
+          final errorResponse = jsonDecode(response.body);
+          final errorMessage =
+              errorResponse['message'] ??
+              "Server error: ${response.statusCode}";
+          return {"success": false, "message": errorMessage};
+        } catch (e) {
+          if (response.statusCode == 401) {
+            return {
+              "success": false,
+              "message": "Unauthorized. Please login again.",
+            };
+          }
+          return {
+            "success": false,
+            "message": "Server error: ${response.statusCode}",
+          };
+        }
       }
 
       return jsonDecode(response.body);
@@ -82,13 +93,40 @@ class ApiService {
     return _makeRequest("GET", "/auth/me");
   }
 
+  static Future<Map<String, dynamic>> deactivateAccount(String password) {
+    print('🗑️ [ApiService] Deactivating account with password verification');
+    return _makeRequest(
+      "DELETE",
+      "/users/account",
+      body: {"password": password},
+    );
+  }
+
   // ========== EXAMS ==========
   static Future<Map<String, dynamic>> fetchExamHistory() {
     return _makeRequest("GET", "/exam/history");
   }
 
+  static Future<Map<String, dynamic>> getExamResult(String examId) {
+    return _makeRequest("GET", "/exam/results/$examId");
+  }
+
   static Future<Map<String, dynamic>> checkExamEligibility() {
     return _makeRequest("GET", "/exam/check-eligibility");
+  }
+
+  static Future<Map<String, dynamic>> fetchExamQuestions({
+    String category = 'all',
+    String difficulty = 'all',
+    int limit = 500,
+  }) {
+    print(
+      '📚 [ApiService] Fetching questions - category: $category, difficulty: $difficulty, limit: $limit',
+    );
+    return _makeRequest(
+      "GET",
+      "/questions?limit=$limit${category != 'all' ? '&category=$category' : ''}${difficulty != 'all' ? '&difficulty=$difficulty' : ''}",
+    );
   }
 
   static Future<Map<String, dynamic>> generateExam({
@@ -96,7 +134,9 @@ class ApiService {
     String difficulty = 'all',
     int numberOfQuestions = 20,
   }) {
-    print('🔄 [ApiService] Generating exam - category: $category, difficulty: $difficulty, questions: $numberOfQuestions');
+    print(
+      '🔄 [ApiService] Generating exam - category: $category, difficulty: $difficulty, questions: $numberOfQuestions',
+    );
     return _makeRequest(
       "POST",
       "/exam/generate",
@@ -113,15 +153,13 @@ class ApiService {
     required int timeSpent,
     required Map<String, dynamic> examData,
   }) {
-    print('📤 [ApiService] Submitting exam - answers: ${answers.length}, timeSpent: $timeSpent');
+    print(
+      '📤 [ApiService] Submitting exam - answers: ${answers.length}, timeSpent: $timeSpent',
+    );
     return _makeRequest(
       "POST",
       "/exam/submit",
-      body: {
-        "answers": answers,
-        "timeSpent": timeSpent,
-        "examData": examData,
-      },
+      body: {"answers": answers, "timeSpent": timeSpent, "examData": examData},
     );
   }
 
@@ -139,7 +177,7 @@ class ApiService {
     try {
       final uri = Uri.parse("$baseUrl/pricing/plans");
       print("📡 Fetching pricing plans from: $uri");
-      
+
       final response = await http.get(uri).timeout(Duration(seconds: 10));
 
       print("✅ API GET /pricing/plans - Status: ${response.statusCode}");
@@ -148,13 +186,17 @@ class ApiService {
 
       if (response.statusCode >= 400) {
         print("❌ Server error: ${response.statusCode}");
-        return {"success": false, "message": "Server error: ${response.statusCode}", "data": []};
+        return {
+          "success": false,
+          "message": "Server error: ${response.statusCode}",
+          "data": [],
+        };
       }
 
       final decoded = jsonDecode(response.body);
       print("✨ Decoded Response: $decoded");
       print("✨ Response Type after decode: ${decoded.runtimeType}");
-      
+
       return decoded;
     } catch (e) {
       print("❌ API Error: $e");
@@ -202,10 +244,12 @@ class ApiService {
     return _makeRequest("POST", "/payments/confirm/$reference", body: {});
   }
 
-  static Future<Map<String, dynamic>> activatePlan({
-    required String planId,
-  }) {
-    return _makeRequest("POST", "/users/activate-plan", body: {"planId": planId});
+  static Future<Map<String, dynamic>> activatePlan({required String planId}) {
+    return _makeRequest(
+      "POST",
+      "/users/activate-plan",
+      body: {"planId": planId},
+    );
   }
 
   static Future<Map<String, dynamic>> updateUserProfile(
@@ -218,9 +262,10 @@ class ApiService {
     required String currentPassword,
     required String newPassword,
   }) {
-    return _makeRequest("PUT", "/users/password", body: {
-      "currentPassword": currentPassword,
-      "newPassword": newPassword,
-    });
+    return _makeRequest(
+      "PUT",
+      "/users/password",
+      body: {"currentPassword": currentPassword, "newPassword": newPassword},
+    );
   }
 }

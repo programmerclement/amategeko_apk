@@ -3,14 +3,12 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import '../services/api_service.dart';
 import '../widgets/app_snackbar.dart';
+import 'exam_history_screen.dart';
 
 class ExamScreen extends StatefulWidget {
   final Map<String, dynamic>? eligibilityData;
 
-  const ExamScreen({
-    super.key,
-    this.eligibilityData,
-  });
+  const ExamScreen({super.key, this.eligibilityData});
 
   @override
   State<ExamScreen> createState() => _ExamScreenState();
@@ -32,7 +30,7 @@ class _ExamScreenState extends State<ExamScreen> {
   int remainingSeconds = 1200;
   bool examFinished = false;
   bool showSubmitConfirm = false;
-  
+
   // Question navigation scroll
   late ScrollController questionScrollController;
 
@@ -44,12 +42,12 @@ class _ExamScreenState extends State<ExamScreen> {
   void initState() {
     super.initState();
     print('📝 [ExamScreen] Initializing exam screen');
-    
+
     questionScrollController = ScrollController();
-    
+
     // Disable system features to prevent cheating
     _disableCheating();
-    
+
     // Start exam loading (timer will start after exam loads)
     _generateExam();
   }
@@ -61,13 +59,15 @@ class _ExamScreenState extends State<ExamScreen> {
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
-    
+
     // Disable copy/paste
     // This is handled at the widget level for text selection
   }
 
   void _startTimer() {
-    print('⏱️ [ExamScreen] Timer starting... Duration: $examDurationSeconds seconds (${examDurationSeconds ~/ 60}:${(examDurationSeconds % 60).toString().padLeft(2, '0')})');
+    print(
+      '⏱️ [ExamScreen] Timer starting... Duration: $examDurationSeconds seconds (${examDurationSeconds ~/ 60}:${(examDurationSeconds % 60).toString().padLeft(2, '0')})',
+    );
     examStartTime = DateTime.now();
     // Reset remaining seconds to full duration
     setState(() {
@@ -83,16 +83,18 @@ class _ExamScreenState extends State<ExamScreen> {
         final elapsedDuration = DateTime.now().difference(examStartTime);
         final elapsedSeconds = elapsedDuration.inSeconds;
         final newRemaining = max(0, examDurationSeconds - elapsedSeconds);
-        
+
         // Debug: log every 5 seconds
         if (elapsedSeconds % 5 == 0) {
-          print('⏱️ [Timer] Elapsed: ${elapsedSeconds}s, Remaining: ${newRemaining}s (${newRemaining ~/ 60}:${(newRemaining % 60).toString().padLeft(2, '0')})');
+          print(
+            '⏱️ [Timer] Elapsed: ${elapsedSeconds}s, Remaining: ${newRemaining}s (${newRemaining ~/ 60}:${(newRemaining % 60).toString().padLeft(2, '0')})',
+          );
         }
-        
+
         setState(() {
           remainingSeconds = newRemaining;
         });
-        
+
         // Auto-submit when time is up
         if (remainingSeconds <= 0 && !examFinished) {
           examFinished = true;
@@ -100,7 +102,7 @@ class _ExamScreenState extends State<ExamScreen> {
           _autoSubmitExam();
           return;
         }
-        
+
         // Continue ticking if time remains and exam not finished
         if (!examFinished && remainingSeconds > 0) {
           _scheduleTimerTick();
@@ -125,7 +127,9 @@ class _ExamScreenState extends State<ExamScreen> {
       if (!mounted) return;
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Failed to generate exam (success=false)');
+        throw Exception(
+          response['message'] ?? 'Failed to generate exam (success=false)',
+        );
       }
 
       final examSession = response['examSession'];
@@ -143,24 +147,28 @@ class _ExamScreenState extends State<ExamScreen> {
         // ALWAYS use 20 minutes (1200 seconds) regardless of API response
         examDurationSeconds = 1200; // 20 minutes = 1200 seconds
         remainingSeconds = examDurationSeconds;
-        print('📋 [ExamScreen] Exam duration: 20 minutes = 1200 seconds (FIXED)');
+        print(
+          '📋 [ExamScreen] Exam duration: 20 minutes = 1200 seconds (FIXED)',
+        );
         isLoadingExam = false;
       });
 
-      print('✅ [ExamScreen] Exam loaded with ${examData?['questions']?.length} questions');
-      
+      print(
+        '✅ [ExamScreen] Exam loaded with ${examData?['questions']?.length} questions',
+      );
+
       // Start timer NOW - after exam is loaded and ready
       _startTimer();
-      
+
       if (mounted) {
         AppSnackbar.success(context, '✅ Exam started! Good luck!');
       }
     } catch (e) {
       print('❌ [ExamScreen] Error generating exam: $e');
-      
+
       if (mounted) {
         setState(() => isLoadingExam = false);
-        
+
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -173,7 +181,7 @@ class _ExamScreenState extends State<ExamScreen> {
                   Navigator.pop(context);
                 },
                 child: Text('Go Back'),
-              )
+              ),
             ],
           ),
         );
@@ -197,9 +205,9 @@ class _ExamScreenState extends State<ExamScreen> {
     try {
       print('📤 [ExamScreen] Submitting exam...');
       print('📊 Answered: ${answers.length} questions');
-      
+
       final timeSpent = examDurationSeconds - remainingSeconds;
-      
+
       final response = await ApiService.submitExam(
         answers: answers,
         timeSpent: timeSpent,
@@ -219,8 +227,10 @@ class _ExamScreenState extends State<ExamScreen> {
         // Show results screen
         _showResultsDialog(response);
       } else {
-        AppSnackbar.error(context, 
-          response['message'] ?? 'Failed to submit exam');
+        AppSnackbar.error(
+          context,
+          response['message'] ?? 'Failed to submit exam',
+        );
       }
     } catch (e) {
       print('❌ [ExamScreen] Error submitting exam: $e');
@@ -240,7 +250,7 @@ class _ExamScreenState extends State<ExamScreen> {
     final correctAnswers = results['correctAnswers'] ?? 0;
     final totalQuestions = results['totalQuestions'] ?? 0;
     final timeSpent = results['timeSpent'] ?? 0;
-    
+
     // Store detailed results and show full-screen results page
     if (mounted) {
       setState(() {
@@ -261,7 +271,7 @@ class _ExamScreenState extends State<ExamScreen> {
   String _formatTimeSpent(int seconds) {
     final minutes = seconds ~/ 60;
     final secs = seconds % 60;
-    
+
     if (minutes == 0) {
       return '${secs}s';
     } else if (secs == 0) {
@@ -285,7 +295,8 @@ class _ExamScreenState extends State<ExamScreen> {
     final correctAnswers = resultsData!['correctAnswers'] ?? 0;
     final totalQuestions = resultsData!['totalQuestions'] ?? 0;
     final timeSpent = resultsData!['timeSpent'] ?? 0;
-    final incorrectCount = resultsData!['incorrectCount'] ?? (totalQuestions - correctAnswers);
+    final incorrectCount =
+        resultsData!['incorrectCount'] ?? (totalQuestions - correctAnswers);
     final detailedResults = resultsData!['results'] as List? ?? [];
 
     return WillPopScope(
@@ -305,7 +316,9 @@ class _ExamScreenState extends State<ExamScreen> {
                       color: passed ? Colors.green.shade50 : Colors.red.shade50,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: passed ? Colors.green.shade300 : Colors.red.shade300,
+                        color: passed
+                            ? Colors.green.shade300
+                            : Colors.red.shade300,
                       ),
                     ),
                     padding: EdgeInsets.all(24),
@@ -314,11 +327,15 @@ class _ExamScreenState extends State<ExamScreen> {
                         Icon(
                           passed ? Icons.check_circle : Icons.cancel,
                           size: 64,
-                          color: passed ? Colors.green.shade600 : Colors.red.shade600,
+                          color: passed
+                              ? Colors.green.shade600
+                              : Colors.red.shade600,
                         ),
                         SizedBox(height: 16),
                         Text(
-                          passed ? '🎉 Congratulations!' : '😔 Keep Practicing!',
+                          passed
+                              ? '🎉 Congratulations!'
+                              : '😔 Keep Practicing!',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
@@ -339,7 +356,9 @@ class _ExamScreenState extends State<ExamScreen> {
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w700,
-                            color: passed ? Colors.green.shade600 : Colors.red.shade600,
+                            color: passed
+                                ? Colors.green.shade600
+                                : Colors.red.shade600,
                           ),
                         ),
                         SizedBox(height: 8),
@@ -384,9 +403,21 @@ class _ExamScreenState extends State<ExamScreen> {
                           crossAxisSpacing: 6,
                           children: [
                             _buildStatCard('Score', '$score%', Colors.blue),
-                            _buildStatCard('Correct', '$correctAnswers', Colors.green),
-                            _buildStatCard('Wrong', '$incorrectCount', Colors.red),
-                            _buildStatCard('Time', _formatTimeSpent(timeSpent), Colors.purple),
+                            _buildStatCard(
+                              'Correct',
+                              '$correctAnswers',
+                              Colors.green,
+                            ),
+                            _buildStatCard(
+                              'Wrong',
+                              '$incorrectCount',
+                              Colors.red,
+                            ),
+                            _buildStatCard(
+                              'Time',
+                              _formatTimeSpent(timeSpent),
+                              Colors.purple,
+                            ),
                           ],
                         ),
                       ],
@@ -435,7 +466,10 @@ class _ExamScreenState extends State<ExamScreen> {
                           Column(
                             children: List.generate(
                               detailedResults.length,
-                              (index) => _buildQuestionReviewItem(detailedResults[index], index),
+                              (index) => _buildQuestionReviewItem(
+                                detailedResults[index],
+                                index,
+                              ),
                             ),
                           )
                         else
@@ -457,43 +491,68 @@ class _ExamScreenState extends State<ExamScreen> {
                   SizedBox(height: 20),
 
                   // Action Buttons
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            // Go back to ExamsTab for another exam
-                            Navigator.pop(context, true);
-                          },
-                          icon: Icon(Icons.replay),
-                          label: Text('Try Again'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                // Go back to ExamsTab for another exam
+                                Navigator.pop(context, true);
+                              },
+                              icon: Icon(Icons.replay),
+                              label: Text('Try Again'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade600,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            // Go back to home
-                            Navigator.pop(context);
-                            Navigator.pop(context);
-                          },
-                          icon: Icon(Icons.home),
-                          label: Text('Back Home'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                // Go back to home
+                                Navigator.pop(context);
+                                Navigator.pop(context);
+                              },
+                              icon: Icon(Icons.home),
+                              label: Text('Back Home'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade600,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
                             ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ExamHistoryScreen(),
+                            ),
+                          );
+                        },
+                        icon: Icon(Icons.history),
+                        label: Text('View Exam History'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ),
@@ -512,9 +571,9 @@ class _ExamScreenState extends State<ExamScreen> {
   Widget _buildStatCard(String label, String value, Color color) {
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       padding: EdgeInsets.all(10),
       child: Column(
@@ -549,7 +608,10 @@ class _ExamScreenState extends State<ExamScreen> {
 
   Widget _buildQuestionReviewItem(Map<String, dynamic> result, int index) {
     final isCorrect = result['isCorrect'] ?? false;
-    final questionText = result['questionText'] ?? result['question'] ?? 'Question not available';
+    final questionText =
+        result['questionText'] ??
+        result['question'] ??
+        'Question not available';
     final userAnswer = result['userAnswer'] ?? 'Not answered';
     final correctAnswer = result['correctAnswer'] ?? 'Unknown';
     final options = (result['options'] as List?) ?? [];
@@ -588,7 +650,9 @@ class _ExamScreenState extends State<ExamScreen> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isCorrect ? Colors.green.shade200 : Colors.red.shade200,
+                  color: isCorrect
+                      ? Colors.green.shade200
+                      : Colors.red.shade200,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -596,7 +660,9 @@ class _ExamScreenState extends State<ExamScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: isCorrect ? Colors.green.shade700 : Colors.red.shade700,
+                    color: isCorrect
+                        ? Colors.green.shade700
+                        : Colors.red.shade700,
                   ),
                 ),
               ),
@@ -623,76 +689,73 @@ class _ExamScreenState extends State<ExamScreen> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
-                children: List.generate(
-                  options.length,
-                  (optIndex) {
-                    final option = options[optIndex];
-                    final isCorrectOption = option == correctAnswer;
-                    final isUserAnswer = option == userAnswer;
-                    Color bgColor = Colors.grey.shade50;
-                    Color borderColor = Colors.grey.shade300;
-                    String? badge;
+                children: List.generate(options.length, (optIndex) {
+                  final option = options[optIndex];
+                  final isCorrectOption = option == correctAnswer;
+                  final isUserAnswer = option == userAnswer;
+                  Color bgColor = Colors.grey.shade50;
+                  Color borderColor = Colors.grey.shade300;
+                  String? badge;
 
-                    if (isCorrectOption) {
-                      bgColor = Colors.green.shade100;
-                      borderColor = Colors.green.shade500;
-                      badge = '✓ Correct Answer';
-                    } else if (isUserAnswer && !isCorrect) {
-                      bgColor = Colors.red.shade100;
-                      borderColor = Colors.red.shade500;
-                      badge = '✗ Your Answer';
-                    }
+                  if (isCorrectOption) {
+                    bgColor = Colors.green.shade100;
+                    borderColor = Colors.green.shade500;
+                    badge = '✓ Correct Answer';
+                  } else if (isUserAnswer && !isCorrect) {
+                    bgColor = Colors.red.shade100;
+                    borderColor = Colors.red.shade500;
+                    badge = '✗ Your Answer';
+                  }
 
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        border: Border(
-                          bottom: optIndex < options.length - 1
-                              ? BorderSide(color: Colors.grey.shade200)
-                              : BorderSide.none,
-                        ),
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      border: Border(
+                        bottom: optIndex < options.length - 1
+                            ? BorderSide(color: Colors.grey.shade200)
+                            : BorderSide.none,
                       ),
-                      padding: EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          Expanded(
+                    ),
+                    padding: EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            option.toString(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                        ),
+                        if (badge != null)
+                          Container(
+                            margin: EdgeInsets.only(left: 8),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isCorrectOption
+                                  ? Colors.green.shade300
+                                  : Colors.red.shade300,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                             child: Text(
-                              option.toString(),
+                              badge,
                               style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade800,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isCorrectOption
+                                    ? Colors.green.shade700
+                                    : Colors.red.shade700,
                               ),
                             ),
                           ),
-                          if (badge != null)
-                            Container(
-                              margin: EdgeInsets.only(left: 8),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isCorrectOption
-                                    ? Colors.green.shade300
-                                    : Colors.red.shade300,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                badge,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCorrectOption
-                                      ? Colors.green.shade700
-                                      : Colors.red.shade700,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  );
+                }),
               ),
             ),
 
@@ -720,10 +783,7 @@ class _ExamScreenState extends State<ExamScreen> {
                   SizedBox(height: 6),
                   Text(
                     explanation,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.shade800,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
                   ),
                 ],
               ),
@@ -733,7 +793,6 @@ class _ExamScreenState extends State<ExamScreen> {
       ),
     );
   }
-
 
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
@@ -816,17 +875,15 @@ class _ExamScreenState extends State<ExamScreen> {
       return Scaffold(
         body: Center(
           child: Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.warning,
-                    size: 48,
-                    color: Colors.orange.shade600,
-                  ),
+                  Icon(Icons.warning, size: 48, color: Colors.orange.shade600),
                   SizedBox(height: 16),
                   Text(
                     'Submit Exam?',
@@ -839,14 +896,12 @@ class _ExamScreenState extends State<ExamScreen> {
                   SizedBox(height: 8),
                   Text(
                     'Are you sure you want to submit?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 8),
-                  if ((examData?['questions']?.length ?? 0) - answers.length > 0)
+                  if ((examData?['questions']?.length ?? 0) - answers.length >
+                      0)
                     Text(
                       'You have ${(examData?['questions']?.length ?? 0) - answers.length} unanswered questions',
                       style: TextStyle(
@@ -860,11 +915,13 @@ class _ExamScreenState extends State<ExamScreen> {
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: isSubmittingExam ? null : () {
-                            setState(() {
-                              showSubmitConfirm = false;
-                            });
-                          },
+                          onPressed: isSubmittingExam
+                              ? null
+                              : () {
+                                  setState(() {
+                                    showSubmitConfirm = false;
+                                  });
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey.shade600,
                             disabledBackgroundColor: Colors.grey.shade400,
@@ -876,12 +933,14 @@ class _ExamScreenState extends State<ExamScreen> {
                       SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: isSubmittingExam ? null : () {
-                            setState(() {
-                              showSubmitConfirm = false;
-                            });
-                            _submitExam();
-                          },
+                          onPressed: isSubmittingExam
+                              ? null
+                              : () {
+                                  setState(() {
+                                    showSubmitConfirm = false;
+                                  });
+                                  _submitExam();
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red.shade600,
                             disabledBackgroundColor: Colors.grey.shade400,
@@ -893,7 +952,9 @@ class _ExamScreenState extends State<ExamScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : Text('Submit Exam'),
@@ -910,7 +971,7 @@ class _ExamScreenState extends State<ExamScreen> {
     }
 
     final questions = examData?['questions'] as List? ?? [];
-    final currentQuestion = questions.isNotEmpty 
+    final currentQuestion = questions.isNotEmpty
         ? questions[currentQuestionIndex] as Map<String, dynamic>
         : null;
     final questionId = currentQuestion?['_id'] ?? 'q$currentQuestionIndex';
@@ -967,10 +1028,10 @@ class _ExamScreenState extends State<ExamScreen> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: _getTimeColor().withOpacity(0.1),
+                                color: _getTimeColor().withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: _getTimeColor().withOpacity(0.3),
+                                  color: _getTimeColor().withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Row(
@@ -995,11 +1056,13 @@ class _ExamScreenState extends State<ExamScreen> {
                             SizedBox(width: 8),
                             // Submit Button in Header (Primary)
                             ElevatedButton.icon(
-                              onPressed: isSubmittingExam ? null : () {
-                                setState(() {
-                                  showSubmitConfirm = true;
-                                });
-                              },
+                              onPressed: isSubmittingExam
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        showSubmitConfirm = true;
+                                      });
+                                    },
                               icon: Icon(Icons.check, size: 18),
                               label: Text('Submit'),
                               style: ElevatedButton.styleFrom(
@@ -1019,30 +1082,47 @@ class _ExamScreenState extends State<ExamScreen> {
                               height: 36,
                               child: IconButton(
                                 padding: EdgeInsets.zero,
-                                constraints: BoxConstraints(maxWidth: 36, maxHeight: 36),
-                                onPressed: isSubmittingExam ? null : () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: Text('Exit Exam?'),
-                                      content: Text('Do you want to exit the exam? Your progress will not be saved.'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context),
-                                          child: Text('Continue Exam'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text('Exit', style: TextStyle(color: Colors.red)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                icon: Icon(Icons.exit_to_app, size: 18, color: Colors.grey.shade600),
+                                constraints: BoxConstraints(
+                                  maxWidth: 36,
+                                  maxHeight: 36,
+                                ),
+                                onPressed: isSubmittingExam
+                                    ? null
+                                    : () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: Text('Exit Exam?'),
+                                            content: Text(
+                                              'Do you want to exit the exam? Your progress will not be saved.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(context),
+                                                child: Text('Continue Exam'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.pop(context);
+                                                  Navigator.pop(context);
+                                                },
+                                                child: Text(
+                                                  'Exit',
+                                                  style: TextStyle(
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                icon: Icon(
+                                  Icons.exit_to_app,
+                                  size: 18,
+                                  color: Colors.grey.shade600,
+                                ),
                                 tooltip: 'Exit Exam',
                               ),
                             ),
@@ -1051,7 +1131,7 @@ class _ExamScreenState extends State<ExamScreen> {
                       ],
                     ),
                     SizedBox(height: 12),
-                    
+
                     // Progress bar
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -1059,7 +1139,9 @@ class _ExamScreenState extends State<ExamScreen> {
                         value: (currentQuestionIndex + 1) / questions.length,
                         minHeight: 6,
                         backgroundColor: Colors.grey.shade200,
-                        valueColor: AlwaysStoppedAnimation(Colors.green.shade600),
+                        valueColor: AlwaysStoppedAnimation(
+                          Colors.green.shade600,
+                        ),
                       ),
                     ),
                   ],
@@ -1074,52 +1156,49 @@ class _ExamScreenState extends State<ExamScreen> {
                   scrollDirection: Axis.horizontal,
                   controller: questionScrollController,
                   child: Row(
-                    children: List.generate(
-                      questions.length,
-                      (index) {
-                        final qId = questions[index]['_id'] ?? 'q$index';
-                        final isAnswered = answers.containsKey(qId);
-                        final isCurrent = index == currentQuestionIndex;
+                    children: List.generate(questions.length, (index) {
+                      final qId = questions[index]['_id'] ?? 'q$index';
+                      final isAnswered = answers.containsKey(qId);
+                      final isCurrent = index == currentQuestionIndex;
 
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() => currentQuestionIndex = index);
-                            _scrollToCurrentQuestion();
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            margin: EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => currentQuestionIndex = index);
+                          _scrollToCurrentQuestion();
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          margin: EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? Colors.green.shade600
+                                : isAnswered
+                                ? Colors.blue.shade100
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
                               color: isCurrent
-                                  ? Colors.green.shade600
-                                  : isAnswered
-                                      ? Colors.blue.shade100
-                                      : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isCurrent
-                                    ? Colors.green.shade700
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
+                                  ? Colors.green.shade700
+                                  : Colors.transparent,
+                              width: 2,
                             ),
-                            child: Center(
-                              child: Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCurrent || isAnswered
-                                      ? Colors.white
-                                      : Colors.grey.shade700,
-                                ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isCurrent || isAnswered
+                                    ? Colors.white
+                                    : Colors.grey.shade700,
                               ),
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
               ),
@@ -1134,7 +1213,8 @@ class _ExamScreenState extends State<ExamScreen> {
                           children: [
                             // Question text
                             SelectableText(
-                              currentQuestion['question'] ?? 'Question not available',
+                              currentQuestion['question'] ??
+                                  'Question not available',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1159,7 +1239,9 @@ class _ExamScreenState extends State<ExamScreen> {
                                         height: 200,
                                         color: Colors.grey.shade200,
                                         child: Center(
-                                          child: Icon(Icons.image_not_supported),
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                          ),
                                         ),
                                       );
                                     },
@@ -1168,68 +1250,80 @@ class _ExamScreenState extends State<ExamScreen> {
                               ),
 
                             // Options
-                            ...(currentQuestion['options'] as List?)?.asMap().entries.map(
-                              (entry) {
-                                final option = entry.value;
+                            ...(currentQuestion['options'] as List?)
+                                    ?.asMap()
+                                    .entries
+                                    .map((entry) {
+                                      final option = entry.value;
 
-                                return Padding(
-                                  padding: EdgeInsets.only(bottom: 12),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        answers[questionId] = option;
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: userAnswer == option
-                                            ? Colors.blue.shade50
-                                            : Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: userAnswer == option
-                                              ? Colors.blue.shade600
-                                              : Colors.grey.shade300,
-                                          width: userAnswer == option ? 2 : 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 24,
-                                            height: 24,
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: 12),
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              answers[questionId] = option;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: EdgeInsets.all(16),
                                             decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
+                                              color: userAnswer == option
+                                                  ? Colors.blue.shade50
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                               border: Border.all(
                                                 color: userAnswer == option
                                                     ? Colors.blue.shade600
-                                                    : Colors.grey.shade400,
-                                                width:
-                                                    userAnswer == option ? 8 : 2,
+                                                    : Colors.grey.shade300,
+                                                width: userAnswer == option
+                                                    ? 2
+                                                    : 1,
                                               ),
                                             ),
-                                          ),
-                                          SizedBox(width: 16),
-                                          Expanded(
-                                            child: Text(
-                                              option ?? '',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade900,
-                                                fontWeight: userAnswer == option
-                                                    ? FontWeight.w600
-                                                    : FontWeight.w400,
-                                              ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 24,
+                                                  height: 24,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color:
+                                                          userAnswer == option
+                                                          ? Colors.blue.shade600
+                                                          : Colors
+                                                                .grey
+                                                                .shade400,
+                                                      width:
+                                                          userAnswer == option
+                                                          ? 8
+                                                          : 2,
+                                                    ),
+                                                  ),
+                                                ),
+                                                SizedBox(width: 16),
+                                                Expanded(
+                                                  child: Text(
+                                                    option ?? '',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color:
+                                                          Colors.grey.shade900,
+                                                      fontWeight:
+                                                          userAnswer == option
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w400,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ).toList() ??
+                                        ),
+                                      );
+                                    })
+                                    .toList() ??
                                 [],
                           ],
                         )
@@ -1267,16 +1361,17 @@ class _ExamScreenState extends State<ExamScreen> {
                         onPressed: isSubmittingExam
                             ? null
                             : currentQuestionIndex < questions.length - 1
-                                ? _nextQuestion
-                                : _submitExam,
+                            ? _nextQuestion
+                            : _submitExam,
                         icon: isSubmittingExam
                             ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor:
-                                      AlwaysStoppedAnimation(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : Icon(
@@ -1288,8 +1383,8 @@ class _ExamScreenState extends State<ExamScreen> {
                           isSubmittingExam
                               ? 'Submitting...'
                               : currentQuestionIndex < questions.length - 1
-                                  ? 'Next'
-                                  : 'Submit Exam',
+                              ? 'Next'
+                              : 'Submit Exam',
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,

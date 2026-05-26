@@ -419,7 +419,7 @@ class _PaymentsTabState extends State<PaymentsTab> {
     setState(() => isPaymentProcessing = true);
 
     try {
-      final phoneWithZero = '0' + cleanPhone; // Add 0 prefix to make 10 digits
+      final phoneWithZero = '0$cleanPhone'; // Add 0 prefix to make 10 digits
       
       print('💰 Initiating payment:');
       print('User ID: $userId');
@@ -1088,7 +1088,7 @@ class _PaymentsTabState extends State<PaymentsTab> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1466,7 +1466,7 @@ class _PaymentsTabState extends State<PaymentsTab> {
                     onChanged: (value) {
                       setState(() {
                         phoneNumber = value;
-                        if (value.replaceAll(RegExp(r'\D'), '').length >= 1) {
+                        if (value.replaceAll(RegExp(r'\D'), '').isNotEmpty) {
                           selectedNetwork = getNetworkFromPhone(value);
                         }
                       });
@@ -2142,7 +2142,7 @@ class _PaymentsTabState extends State<PaymentsTab> {
 
     try {
       final cleanPhone = phoneNumber.replaceAll(RegExp(r'\D'), '');
-      final phoneWithZero = '0' + cleanPhone; // Add 0 prefix to make 10 digits
+      final phoneWithZero = '0$cleanPhone'; // Add 0 prefix to make 10 digits
       final detectedNetwork = getNetworkFromPhone(cleanPhone);
 
       print('💰 Starting payment process...');
@@ -2722,8 +2722,7 @@ class _PlanCard extends StatelessWidget {
     required this.plan,
     required this.onSelect,
     required this.isLoading,
-    this.isSelected = false,
-  });
+  }) : isSelected = false;
 
   @override
   Widget build(BuildContext context) {
@@ -2748,13 +2747,13 @@ class _PlanCard extends StatelessWidget {
           boxShadow: [
             if (isPopular || isSelected)
               BoxShadow(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 blurRadius: 16,
                 offset: Offset(0, 8),
               )
             else
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 12,
                 offset: Offset(0, 4),
               ),

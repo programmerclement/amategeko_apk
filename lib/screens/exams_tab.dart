@@ -459,9 +459,9 @@ class _ExamsTabState extends State<ExamsTab> {
 
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       padding: EdgeInsets.all(16),
       child: Row(
@@ -485,7 +485,7 @@ class _ExamsTabState extends State<ExamsTab> {
                   statusMessage,
                   style: TextStyle(
                     fontSize: 12,
-                    color: color.withOpacity(0.8),
+                    color: color.withValues(alpha: 0.8),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -543,7 +543,7 @@ class _ExamsTabState extends State<ExamsTab> {
                   'Complete your plan to take an exam',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
               ),
@@ -577,7 +577,7 @@ class _ExamsTabState extends State<ExamsTab> {
               Icon(Icons.history, size: 48, color: Colors.grey.shade300),
               SizedBox(height: 12),
               Text(
-                examFilter == 'all' ? 'No exam records yet' : 'No ${examFilter} records yet',
+                examFilter == 'all' ? 'No exam records yet' : 'No $examFilter records yet',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade600,
@@ -672,7 +672,7 @@ class _ExamsTabState extends State<ExamsTab> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
+                                    color: Colors.black.withValues(alpha: 0.05),
                                     blurRadius: 4,
                                     offset: Offset(0, 2),
                                   ),
@@ -966,7 +966,7 @@ class _ExamsTabState extends State<ExamsTab> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
