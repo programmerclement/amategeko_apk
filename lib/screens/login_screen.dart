@@ -382,7 +382,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   },
                                   borderRadius: BorderRadius.circular(12),
                                   child: Container(
-                                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 14,
+                                      horizontal: 16,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       border: Border.all(
@@ -392,21 +395,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.08),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.08,
+                                          ),
                                           blurRadius: 6,
                                           offset: Offset(0, 2),
                                         ),
                                       ],
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         // Google Logo Icon
                                         Container(
                                           width: 28,
                                           height: 28,
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
                                             gradient: LinearGradient(
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
@@ -423,7 +431,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                               Container(
                                                 decoration: BoxDecoration(
                                                   shape: BoxShape.circle,
-                                                  color: Colors.white.withValues(alpha: 0.95),
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.95),
                                                 ),
                                                 margin: EdgeInsets.all(4),
                                               ),
@@ -454,7 +463,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                         ),
                                         SizedBox(width: 14),
-                                        SizedBox(width: 28), // Spacer to balance the icon
+                                        SizedBox(
+                                          width: 28,
+                                        ), // Spacer to balance the icon
                                       ],
                                     ),
                                   ),
@@ -903,7 +914,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             onTap: isLoading ? null : handleGoogleSignIn,
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
-                              padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 16,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 border: Border.all(
@@ -944,7 +958,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                         Container(
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            color: Colors.white.withValues(alpha: 0.95),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.95,
+                                            ),
                                           ),
                                           margin: EdgeInsets.all(4),
                                         ),
@@ -975,7 +991,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 14),
-                                  SizedBox(width: 28), // Spacer to balance the icon
+                                  SizedBox(
+                                    width: 28,
+                                  ), // Spacer to balance the icon
                                 ],
                               ),
                             ),

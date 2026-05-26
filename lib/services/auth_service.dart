@@ -16,7 +16,8 @@ class AuthService {
 
   // Google Sign-In initialization
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: "764416304687-qddp4a8rl42fagtk05n7pe48l0gh44iu.apps.googleusercontent.com",
+    serverClientId:
+        "764416304687-qddp4a8rl42fagtk05n7pe48l0gh44iu.apps.googleusercontent.com",
     scopes: [
       'email',
       'profile',
@@ -261,7 +262,7 @@ class AuthService {
     try {
       // First, sign out from any previous session to clear state
       await _googleSignIn.signOut();
-      
+
       print("🔐 Starting Google Sign-In...");
       // Sign in with Google
       final googleUser = await _googleSignIn.signIn();
@@ -270,14 +271,14 @@ class AuthService {
         print("🔐 Google sign-in cancelled by user");
         return {"success": false, "message": "Google sign-in cancelled"};
       }
-      
+
       print("🔐 Google user selected: ${googleUser.email}");
 
       // Get Google ID token
       print("🔐 Getting authentication...");
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
-      
+
       print("🔐 ID Token received: ${idToken?.substring(0, 20)}...");
 
       if (idToken == null) {
@@ -294,9 +295,7 @@ class AuthService {
           .post(
             Uri.parse("$baseUrl/google-verify"),
             headers: {"Content-Type": "application/json"},
-            body: jsonEncode({
-              "token": idToken,
-            }),
+            body: jsonEncode({"token": idToken}),
           )
           .timeout(Duration(seconds: 15));
 
